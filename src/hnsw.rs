@@ -37,13 +37,13 @@ impl Ord for Candidate {
 
 /// Utility struct to store a nearest neighbor search result
 #[derive(Debug)]
-pub struct SearchResult<'r, T, const D: usize> {
-    pub vector: &'r Vector<T, D>,
+pub struct SearchResult<'v, T, const D: usize> {
+    pub vector: &'v Vector<T, D>,
     pub distance: f64,
 }
 
-impl<'r, T, const D: usize> SearchResult<'r, T, D> {
-    pub fn new(vector: &'r Vector<T, D>, distance: f64) -> Self {
+impl<'v, T, const D: usize> SearchResult<'v, T, D> {
+    pub fn new(vector: &'v Vector<T, D>, distance: f64) -> Self {
         Self { vector, distance }
     }
 }

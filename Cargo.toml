@@ -1,0 +1,16 @@
+[package]
+name = "rust-hnsw"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-traits = "0.2"
+rand = { version = "0.8", features = [ "small_rng" ] }
+rayon = "1.10"
+
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"]}
+
+[[bench]]
+name = "bench"
+harness = false

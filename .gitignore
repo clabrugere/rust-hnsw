@@ -1,0 +1,4 @@
+/target
+/src/graph.rs
+/src/hnsw_old.rs
+/.vscode

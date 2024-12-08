@@ -5,7 +5,7 @@
 Implements Hierarchical Navigable Small World in rust, a state-of-the-art index used for approximate nearest neighbor 
 search in vector databases.
 
-The implementation straightforward in the sense that it aims at following the original paper as much as possible, and 
+The implementation is straightforward in the sense that it aims at following the original paper as much as possible, and 
 while some care have been taken to make it performant, is not explicitly optimized for time or memory.
 
 ### Hierarchical Navigable Small World

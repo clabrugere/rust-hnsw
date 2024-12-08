@@ -17,7 +17,7 @@ level contains a node for every vector indexed so far.
 
 ![alt text](assets/hnsw.png)
 
-Once vectors are index, looking the nearest neighbors from a given query vector $ q $ is an iterative process, where
+Once vectors are index, looking the nearest neighbors from a given query vector $q$ is an iterative process, where
 the hierarchy is traveled from the top level to the base. From the top level, a random entry point is sampled and a 
 greedy search on the graph is performed starting from it. The resulting nearest vector is used as entry point for the 
 next level and the process continue until the base level is reached. Once in the base level, a regular greedy search 
@@ -27,7 +27,7 @@ The hierarchical structure of the index allows to traverse very large graphs rat
 in the top levels to reach a more local neighborhood to look for the k nearest vectors of the query.
 
 The 'navigability' of the index depends on two parameters:
-- $ m_L $, a normalization factor that defines the shape of the probability distribution used to sample the highest level a vector being indexed will be present in. In the original paper, authors suggest to set $ m_L = \frac{1}{log M} $ where $ M $ is the number of nearest neighbors to connect to a vector being inserted, and the top level of a vector is $ l_{top} \sim \lfloor -log(\mathcal{U}(0,1)) \cdot m_L \rfloor $. Using this heuristic, the higher $M$, the stronger the exponential decay, meaning that the index will have fewer levels.
+- $m_L$, a normalization factor that defines the shape of the probability distribution used to sample the highest level a vector being indexed will be present in $l_{top} \sim \lfloor -log(\mathcal{U}(0,1)) \cdot m_L \rfloor$. In the original paper, authors suggest to set $m_L = \frac{1}{log M}$ where $M$ is the number of nearest neighbors to connect to a vector being inserted. Using this heuristic, the higher $M$, the stronger the exponential decay, meaning that the index will have fewer levels.
 
 ![alt text](assets/level_sampling.png)
 

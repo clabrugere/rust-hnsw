@@ -20,7 +20,7 @@ pub fn cosine<T: Sized + NumAssign + Copy + Into<f64>, const D: usize>(
 ) -> f64 {
     let (mut x_norm, mut y_norm, mut dot) = (0.0, 0.0, 0.0);
 
-    for (&xi, &yi) in x.iter().zip(y.iter()) {
+    for (&xi, &yi) in x.iter().zip(y) {
         let xi_f64: f64 = xi.into();
         let yi_f64: f64 = yi.into();
         x_norm += xi_f64 * xi_f64;

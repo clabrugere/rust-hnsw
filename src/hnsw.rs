@@ -91,9 +91,9 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
     /// Define the highest level by sampling from an exponentially decaying distribution
     fn sample_max_level_index(&mut self) -> usize {
         let level_multiplier = 1.0 / (self.connections as f64).ln();
-        let p: f64 = self.rng.gen_range(0.0..=1.0);
+        let log_p = (self.rng.gen_range(0.0..=1.0) as f64).ln();
 
-        -(p.ln() * level_multiplier).floor() as usize - 1
+        -(log_p * level_multiplier).floor() as usize - 1
     }
 
     /// Randomly sample a node in the top layer. We are guaranteed to have at least one point when invoking this method

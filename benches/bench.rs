@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use pprof::criterion::{Output, PProfProfiler};
 use rand::distributions::{Distribution, Uniform};
 use rand::rngs::SmallRng;
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use std::time::Duration;
 
 use rust_hnsw::distances::euclidean;
@@ -11,6 +11,18 @@ use rust_hnsw::hnsw::HNSW;
 const SEED: u64 = 1234;
 const LOWD: usize = 3;
 const HIGHD: usize = 784;
+
+fn sample_vector<const D: usize, R: Rng>(
+    distribution: impl Distribution<f64>,
+    rng: &mut R,
+) -> [f64; D] {
+    distribution
+        .sample_iter(rng)
+        .take(D)
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
+}
 
 fn get_config() -> Criterion {
     Criterion::default()
@@ -28,21 +40,11 @@ fn benchmark_low_d_distance(c: &mut Criterion) {
         b.iter_batched(
             || {
                 (
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(LOWD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap(),
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(LOWD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap(),
+                    sample_vector(data_distribution, &mut rng_data),
+                    sample_vector(data_distribution, &mut rng_data),
                 )
             },
-            |(x, y): ([f64; LOWD], [f64; LOWD])| euclidean(black_box(&x), black_box(&y)),
+            |(x, y): ([_; LOWD], [_; LOWD])| euclidean(black_box(&x), black_box(&y)),
             BatchSize::SmallInput,
         );
     });
@@ -56,21 +58,11 @@ fn benchmark_high_d_distance(c: &mut Criterion) {
         b.iter_batched(
             || {
                 (
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(HIGHD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap(),
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(HIGHD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap(),
+                    sample_vector(data_distribution, &mut rng_data),
+                    sample_vector(data_distribution, &mut rng_data),
                 )
             },
-            |(x, y): ([f64; HIGHD], [f64; HIGHD])| euclidean(black_box(&x), black_box(&y)),
+            |(x, y): ([_; HIGHD], [_; HIGHD])| euclidean(black_box(&x), black_box(&y)),
             BatchSize::LargeInput,
         );
     });
@@ -90,17 +82,10 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     (0..size)
-                        .map(|_| {
-                            data_distribution
-                                .sample_iter(&mut rng_data)
-                                .take(LOWD)
-                                .collect::<Vec<_>>()
-                                .try_into()
-                                .unwrap()
-                        })
+                        .map(|_| sample_vector(data_distribution, &mut rng_data))
                         .collect()
                 },
-                |vectors: Vec<[f64; LOWD]>| {
+                |vectors: Vec<[_; LOWD]>| {
                     vectors.iter().for_each(|&v| index.insert(black_box(v)));
                 },
                 BatchSize::SmallInput,
@@ -118,25 +103,12 @@ fn benchmark_low_d_search(c: &mut Criterion) {
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0);
         for _ in 0..100 {
-            let vector: [f64; LOWD] = data_distribution
-                .sample_iter(&mut rng_data)
-                .take(LOWD)
-                .collect::<Vec<f64>>()
-                .try_into()
-                .unwrap();
-
+            let vector: [_; LOWD] = sample_vector(data_distribution, &mut rng_data);
             index.insert(vector);
         }
 
         b.iter_batched(
-            || {
-                data_distribution
-                    .sample_iter(&mut rng_data)
-                    .take(LOWD)
-                    .collect::<Vec<f64>>()
-                    .try_into()
-                    .unwrap()
-            },
+            || sample_vector(data_distribution, &mut rng_data),
             |query| {
                 let _ = index.search(black_box(&query), black_box(3));
             },
@@ -159,17 +131,10 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     (0..size)
-                        .map(|_| {
-                            data_distribution
-                                .sample_iter(&mut rng_data)
-                                .take(HIGHD)
-                                .collect::<Vec<_>>()
-                                .try_into()
-                                .unwrap()
-                        })
+                        .map(|_| sample_vector(data_distribution, &mut rng_data))
                         .collect()
                 },
-                |vectors: Vec<[f64; HIGHD]>| {
+                |vectors: Vec<[_; HIGHD]>| {
                     vectors.iter().for_each(|&v| index.insert(black_box(v)));
                 },
                 BatchSize::SmallInput,
@@ -187,25 +152,12 @@ fn benchmark_high_d_search(c: &mut Criterion) {
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0);
         for _ in 0..100 {
-            let vector: [f64; HIGHD] = data_distribution
-                .sample_iter(&mut rng_data)
-                .take(HIGHD)
-                .collect::<Vec<f64>>()
-                .try_into()
-                .unwrap();
-
+            let vector: [_; HIGHD] = sample_vector(data_distribution, &mut rng_data);
             index.insert(vector);
         }
 
         b.iter_batched(
-            || {
-                data_distribution
-                    .sample_iter(&mut rng_data)
-                    .take(HIGHD)
-                    .collect::<Vec<f64>>()
-                    .try_into()
-                    .unwrap()
-            },
+            || sample_vector(data_distribution, &mut rng_data),
             |query| {
                 let _ = index.search(black_box(&query), black_box(3));
             },

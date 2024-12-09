@@ -1,10 +1,12 @@
-use num_traits::NumAssign;
-use std::iter::Sum;
+use std::{
+    iter::Sum,
+    ops::{Mul, Sub},
+};
 
 /// Compute the squared L2 distance between two vectors and return a f64
-pub fn euclidean<T: Sized + NumAssign + Sum + Copy + Into<f64>, const D: usize>(
-    x: &[T; D],
-    y: &[T; D],
+pub fn euclidean<T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>>(
+    x: &[T],
+    y: &[T],
 ) -> f64 {
     x.iter()
         .zip(y)
@@ -14,10 +16,7 @@ pub fn euclidean<T: Sized + NumAssign + Sum + Copy + Into<f64>, const D: usize>(
 }
 
 /// Compute the cosine distance between two vectors and return a f64
-pub fn cosine<T: Sized + NumAssign + Copy + Into<f64>, const D: usize>(
-    x: &[T; D],
-    y: &[T; D],
-) -> f64 {
+pub fn cosine<T: Sized + Copy + Into<f64>>(x: &[T], y: &[T]) -> f64 {
     let (mut x_norm, mut y_norm, mut dot) = (0.0, 0.0, 0.0);
 
     for (&xi, &yi) in x.iter().zip(y) {

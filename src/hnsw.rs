@@ -4,7 +4,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
 type Vector<T, const D: usize> = [T; D];
-type DistanceMetric<T, const D: usize> = fn(&Vector<T, D>, &Vector<T, D>) -> f64;
+type DistanceMetric<T> = fn(&[T], &[T]) -> f64;
 type Nodes<T, const D: usize> = HashMap<usize, Vector<T, D>>;
 type Level = HashMap<usize, Vec<usize>>;
 
@@ -51,7 +51,7 @@ impl<'v, T, const D: usize> SearchResult<'v, T, D> {
 pub struct HNSW<T, const D: usize, R> {
     connections: usize, // M parameter
     ef_construction: usize,
-    distance_metric: DistanceMetric<T, D>,
+    distance_metric: DistanceMetric<T>,
     rng: R,
     pub(crate) max_connections: usize,   // Mmax parameter
     pub(crate) max_connections_0: usize, // Mmax0
@@ -64,7 +64,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
     pub fn new(
         connections: usize,
         ef_construction: usize,
-        distance_metric: DistanceMetric<T, D>,
+        distance_metric: DistanceMetric<T>,
         rng: R,
     ) -> Self {
         // heuristic to bound the connectivity of the levels

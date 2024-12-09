@@ -759,10 +759,8 @@ name = "rust-hnsw"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "num-traits",
  "pprof",
  "rand",
- "rayon",
 ]
 
 [[package]]

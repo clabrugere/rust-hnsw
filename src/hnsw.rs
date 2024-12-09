@@ -1,5 +1,5 @@
 use rand::{seq::IteratorRandom, Rng};
-use std::cmp::{min, Ordering};
+use std::cmp::{min, Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -131,7 +131,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         }
     }
 
-    /// Perform a greedy search in a level from a starting node and return the nearest `ef` closest neighbors found
+    /// Perform BFS search in a level from a starting set of nodes, and return the nearest `ef` closest neighbors found
     fn search_level(
         &self,
         level_index: usize,
@@ -140,47 +140,42 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         ef: usize,
     ) -> Vec<Candidate> {
         let max_connections = self.get_max_connections(level_index);
-        let mut nearest_neighbors = BinaryHeap::with_capacity(ef);
-        let mut candidates = BinaryHeap::with_capacity(max_connections);
+        let mut candidates = BinaryHeap::with_capacity(max_connections); // min heap
+        let mut nearest_neighbors = BinaryHeap::with_capacity(ef); // max heap
         let mut visited = HashSet::new();
 
-        // start from the entry points
-        candidates.extend(entry_ids.iter().map(|&id| {
-            Candidate::new(
-                id,
-                (self.distance_metric)(query, self.nodes.get(&id).unwrap()),
-            )
-        }));
+        for &entry_id in entry_ids.iter() {
+            let distance = (self.distance_metric)(query, self.nodes.get(&entry_id).unwrap());
+            visited.insert(entry_id);
+            candidates.push(Reverse(Candidate::new(entry_id, distance)));
+            nearest_neighbors.push(Candidate::new(entry_id, distance));
+        }
 
-        // pop the heap until we have no more nodes to visit
-        while let Some(current) = candidates.pop() {
-            // avoid backtracking to visited nodes
-            if !visited.insert(current.id) {
-                continue;
+        while let Some(closest) = candidates.pop().map(|c| c.0) {
+            let furthest_distance = nearest_neighbors.peek().map(|c| c.distance).unwrap();
+
+            if closest.distance > furthest_distance {
+                break;
             }
 
-            let current_id = current.id;
+            if let Some(neighbor_ids) = self.get_neighbors(level_index, closest.id) {
+                for &neighbor_id in neighbor_ids {
+                    if !visited.insert(neighbor_id) {
+                        continue;
+                    }
 
-            // push this node to the result heap if the later is not full or if it's closer than the farthest node
-            // already in the heap.
-            if nearest_neighbors.len() < ef {
-                nearest_neighbors.push(current);
-            } else if let Some(mut top) = nearest_neighbors.peek_mut() {
-                if current.distance < top.distance {
-                    *top = current
+                    let distance =
+                        (self.distance_metric)(query, self.nodes.get(&neighbor_id).unwrap());
+
+                    if nearest_neighbors.len() < ef || distance < furthest_distance {
+                        candidates.push(Reverse(Candidate::new(neighbor_id, distance)));
+                        nearest_neighbors.push(Candidate::new(neighbor_id, distance));
+
+                        if nearest_neighbors.len() > ef {
+                            nearest_neighbors.pop();
+                        }
+                    }
                 }
-            }
-
-            // add all neighbors to the current node to visit next, ordered by their distance to the current node
-            if let Some(neighbor_ids) = self.get_neighbors(level_index, current_id) {
-                candidates.extend(neighbor_ids.iter().filter(|id| !visited.contains(id)).map(
-                    |&id| {
-                        Candidate::new(
-                            id,
-                            (self.distance_metric)(query, self.nodes.get(&id).unwrap()),
-                        )
-                    },
-                ));
             }
         }
 

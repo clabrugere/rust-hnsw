@@ -44,7 +44,7 @@ mod tests {
     fn test_insert_iterator() {
         let rng = SmallRng::seed_from_u64(SEED);
         let mut index = HNSW::new(8, 8, euclidean, rng);
-        let iterator = (0..3).map(|i| [i as f32; 2]);
+        let iterator = (0..3).map(|i| [i as f64; 2]);
 
         index.insert_batch(iterator);
 
@@ -57,7 +57,7 @@ mod tests {
         let rng = SmallRng::seed_from_u64(SEED);
         let mut index = HNSW::new(8, 8, euclidean, rng);
 
-        index.insert_batch((0..10).map(|i| [i as f32; 2]));
+        index.insert_batch((0..10).map(|i| [i as f64; 2]));
 
         // check that the number of nodes in levels is smaller the higher the level
         let structure_ok = index.levels.windows(2).all(|w| {
@@ -73,7 +73,7 @@ mod tests {
         let rng = SmallRng::seed_from_u64(SEED);
         let mut index = HNSW::new(8, 8, euclidean, rng);
 
-        index.insert_batch((0..10).map(|i| [i as f32; 2]));
+        index.insert_batch((0..10).map(|i| [i as f64; 2]));
 
         let structure_ok = index.levels.iter().enumerate().all(|(level_index, level)| {
             level.values().all(move |edges| {
@@ -128,6 +128,7 @@ mod tests {
         let query = [1.1, 2.1, 3.1];
         let result = index.search(&query, 3).unwrap();
 
+        assert_eq!(result.len(), 3);
         assert_eq!(
             result.iter().map(|r| r.vector).collect::<Vec<_>>(),
             &[&vector1, &vector2, &vector3]
@@ -139,7 +140,7 @@ mod tests {
         let rng = SmallRng::seed_from_u64(SEED);
         let mut index = HNSW::new(8, 8, euclidean, rng);
 
-        index.insert_batch((0..10).map(|i| [i as f32; 2]));
+        index.insert_batch((0..10).map(|i| [i as f64; 2]));
 
         assert_eq!(index.len(), 10);
 

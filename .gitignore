@@ -2,3 +2,4 @@
 /src/graph.rs
 /src/hnsw_old.rs
 /.vscode
+.DS_Store

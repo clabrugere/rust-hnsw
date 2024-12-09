@@ -1,7 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use pprof::criterion::{Output, PProfProfiler};
 use rand::distributions::{Distribution, Uniform};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use std::time::Duration;
 
 use rust_hnsw::distances::euclidean;
 use rust_hnsw::hnsw::HNSW;
@@ -9,6 +11,14 @@ use rust_hnsw::hnsw::HNSW;
 const SEED: u64 = 1234;
 const LOWD: usize = 3;
 const HIGHD: usize = 784;
+
+fn get_config() -> Criterion {
+    Criterion::default()
+        .significance_level(0.1)
+        .sample_size(100)
+        .measurement_time(Duration::new(10, 0))
+        .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+}
 
 fn benchmark_low_d_distance(c: &mut Criterion) {
     c.bench_function("low-d distance", |b| {
@@ -32,7 +42,7 @@ fn benchmark_low_d_distance(c: &mut Criterion) {
                         .unwrap(),
                 )
             },
-            |(x, y): ([f64; LOWD], [f64; LOWD])| euclidean(&x, &y),
+            |(x, y): ([f64; LOWD], [f64; LOWD])| euclidean(black_box(&x), black_box(&y)),
             BatchSize::SmallInput,
         );
     });
@@ -60,7 +70,7 @@ fn benchmark_high_d_distance(c: &mut Criterion) {
                         .unwrap(),
                 )
             },
-            |(x, y): ([f64; HIGHD], [f64; HIGHD])| euclidean(&x, &y),
+            |(x, y): ([f64; HIGHD], [f64; HIGHD])| euclidean(black_box(&x), black_box(&y)),
             BatchSize::LargeInput,
         );
     });
@@ -72,26 +82,27 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
     for size in [1, 100] {
         group.bench_function(format!("{size}"), |b| {
             let rng = SmallRng::seed_from_u64(SEED);
-            let mut index = HNSW::new(
-                black_box(16),
-                black_box(100),
-                black_box(euclidean),
-                black_box(rng),
-            );
+            let mut index = HNSW::new(16, 100, euclidean, rng);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
             let data_distribution = Uniform::new(-1.0, 1.0);
 
             b.iter_batched(
                 || {
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(LOWD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap()
+                    (0..size)
+                        .map(|_| {
+                            data_distribution
+                                .sample_iter(&mut rng_data)
+                                .take(LOWD)
+                                .collect::<Vec<_>>()
+                                .try_into()
+                                .unwrap()
+                        })
+                        .collect()
                 },
-                |vector: [f64; LOWD]| index.insert(vector),
+                |vectors: Vec<[f64; LOWD]>| {
+                    vectors.iter().for_each(|&v| index.insert(black_box(v)));
+                },
                 BatchSize::SmallInput,
             );
         });
@@ -102,12 +113,7 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
 fn benchmark_low_d_search(c: &mut Criterion) {
     c.bench_function("low-d search", |b| {
         let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(
-            black_box(16),
-            black_box(100),
-            black_box(euclidean),
-            black_box(rng),
-        );
+        let mut index = HNSW::new(16, 100, euclidean, rng);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0);
@@ -132,7 +138,7 @@ fn benchmark_low_d_search(c: &mut Criterion) {
                     .unwrap()
             },
             |query| {
-                let _ = index.search(&query, 3);
+                let _ = index.search(black_box(&query), black_box(3));
             },
             BatchSize::SmallInput,
         );
@@ -145,26 +151,27 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
     for size in [1, 100] {
         group.bench_function(format!("{size}"), |b| {
             let rng = SmallRng::seed_from_u64(SEED);
-            let mut index = HNSW::new(
-                black_box(16),
-                black_box(100),
-                black_box(euclidean),
-                black_box(rng),
-            );
+            let mut index = HNSW::new(16, 100, euclidean, rng);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
             let data_distribution = Uniform::new(-1.0, 1.0);
 
             b.iter_batched(
                 || {
-                    data_distribution
-                        .sample_iter(&mut rng_data)
-                        .take(HIGHD)
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .unwrap()
+                    (0..size)
+                        .map(|_| {
+                            data_distribution
+                                .sample_iter(&mut rng_data)
+                                .take(HIGHD)
+                                .collect::<Vec<_>>()
+                                .try_into()
+                                .unwrap()
+                        })
+                        .collect()
                 },
-                |vector: [f64; HIGHD]| index.insert(vector),
+                |vectors: Vec<[f64; HIGHD]>| {
+                    vectors.iter().for_each(|&v| index.insert(black_box(v)));
+                },
                 BatchSize::SmallInput,
             );
         });
@@ -175,12 +182,7 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
 fn benchmark_high_d_search(c: &mut Criterion) {
     c.bench_function("high-d search", |b| {
         let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(
-            black_box(16),
-            black_box(100),
-            black_box(euclidean),
-            black_box(rng),
-        );
+        let mut index = HNSW::new(16, 100, euclidean, rng);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0);
@@ -205,7 +207,7 @@ fn benchmark_high_d_search(c: &mut Criterion) {
                     .unwrap()
             },
             |query| {
-                let _ = index.search(&query, 3);
+                let _ = index.search(black_box(&query), black_box(3));
             },
             BatchSize::SmallInput,
         );
@@ -213,8 +215,9 @@ fn benchmark_high_d_search(c: &mut Criterion) {
 }
 
 criterion_group!(
-    benches,
-    benchmark_low_d_distance,
+    name = benches;
+    config = get_config();
+    targets = benchmark_low_d_distance,
     benchmark_high_d_distance,
     benchmark_low_d_insertion,
     benchmark_low_d_search,

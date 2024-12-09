@@ -9,7 +9,8 @@ rand = { version = "0.8", features = [ "small_rng" ] }
 rayon = "1.10"
 
 [dev-dependencies]
-criterion = { version = "0.3", features = ["html_reports"]}
+criterion = { version = "0.5", features = ["html_reports"]}
+pprof = { version = "0.14", features = ["flamegraph", "criterion"] }
 
 [[bench]]
 name = "bench"

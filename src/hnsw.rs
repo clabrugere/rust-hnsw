@@ -9,7 +9,7 @@ type Nodes<T, const D: usize> = HashMap<usize, Vector<T, D>>;
 type Level = HashMap<usize, Vec<usize>>;
 
 /// Utility struct to be used with a binary heap in the neighbor search
-#[derive(PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 struct Candidate {
     pub id: usize,
     pub distance: f64,
@@ -25,13 +25,13 @@ impl Eq for Candidate {}
 
 impl PartialOrd for Candidate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance.partial_cmp(&other.distance)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.distance.partial_cmp(&other.distance).unwrap()
     }
 }
 
@@ -91,7 +91,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
     /// Define the highest level by sampling from an exponentially decaying distribution
     fn sample_max_level_index(&mut self) -> usize {
         let level_multiplier = 1.0 / (self.connections as f64).ln();
-        let log_p = (self.rng.gen_range(0.0..=1.0) as f64).ln();
+        let log_p = self.rng.gen_range::<f64, _>(0.0..=1.0).ln();
 
         -(log_p * level_multiplier).floor() as usize - 1
     }
@@ -145,12 +145,12 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         let mut visited = HashSet::new();
 
         // start from the entry points
-        for &entry_id in entry_ids.iter() {
-            candidates.push(Candidate::new(
-                entry_id,
-                (self.distance_metric)(query, self.nodes.get(&entry_id).unwrap()),
-            ));
-        }
+        candidates.extend(entry_ids.iter().map(|&id| {
+            Candidate::new(
+                id,
+                (self.distance_metric)(query, self.nodes.get(&id).unwrap()),
+            )
+        }));
 
         // pop the heap until we have no more nodes to visit
         while let Some(current) = candidates.pop() {
@@ -173,24 +173,22 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
 
             // add all neighbors to the current node to visit next, ordered by their distance to the current node
             if let Some(neighbor_ids) = self.get_neighbors(level_index, current_id) {
-                neighbor_ids
-                    .iter()
-                    .filter(|id| !visited.contains(id))
-                    .for_each(|id| {
-                        candidates.push(Candidate::new(
-                            *id,
-                            (self.distance_metric)(query, self.nodes.get(id).unwrap()),
-                        ));
-                    })
+                candidates.extend(neighbor_ids.iter().filter(|id| !visited.contains(id)).map(
+                    |&id| {
+                        Candidate::new(
+                            id,
+                            (self.distance_metric)(query, self.nodes.get(&id).unwrap()),
+                        )
+                    },
+                ));
             }
         }
 
         nearest_neighbors.into_sorted_vec()
     }
 
-    fn insert_level(&mut self, id: usize, max_connections: usize) {
+    fn insert_level_with_node(&mut self, id: usize, max_connections: usize) {
         let level = Level::from([(id, Vec::with_capacity(max_connections))]);
-
         self.levels.push(level);
     }
 
@@ -207,31 +205,27 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         let max_connections = self.get_max_connections(level_index);
 
         for Candidate { id, .. } in neighbors {
-            let query = self.nodes.get(id).unwrap();
-
             if let Some(edges) = self.levels[level_index].get_mut(id) {
                 if edges.len() > max_connections {
-                    // calculate distances between node `id` and its neighbors
-                    let mut distances: BinaryHeap<_> = edges
+                    // sort edges by the distances to node `id`
+                    let query = self.nodes.get(id).unwrap();
+                    let distances = edges
                         .iter()
-                        .map(|neighbor_id| {
+                        .map(|&neighbor_id| {
                             Candidate::new(
-                                *neighbor_id,
-                                (self.distance_metric)(query, self.nodes.get(neighbor_id).unwrap()),
+                                neighbor_id,
+                                (self.distance_metric)(
+                                    query,
+                                    self.nodes.get(&neighbor_id).unwrap(),
+                                ),
                             )
                         })
-                        .collect();
-
-                    // discard farthest elements until we reach the desired size
-                    while distances.len() > self.max_connections {
-                        distances.pop();
-                    }
-
-                    // convert to a set for id lookup
-                    let remaining_ids: HashSet<_> = distances.into_iter().map(|c| c.id).collect();
+                        .collect::<BinaryHeap<_>>()
+                        .into_sorted_vec();
 
                     // prune connections to farthest nodes
-                    edges.retain(|neighbor_id| remaining_ids.contains(neighbor_id));
+                    edges.clear();
+                    edges.extend(distances.iter().take(max_connections).map(|c| c.id));
                 }
             }
         }
@@ -256,14 +250,14 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         let node_id = self.insert_vector(&vector);
 
         if self.levels.is_empty() {
-            self.insert_level(node_id, self.max_connections_0);
+            self.insert_level_with_node(node_id, self.max_connections_0);
         } else {
             let top_level_index = self.num_levels() - 1;
             let mut max_level_index = self.sample_max_level_index();
 
             // handle the case of sampling a level higher than the current top level
             if max_level_index > top_level_index {
-                self.insert_level(node_id, self.max_connections);
+                self.insert_level_with_node(node_id, self.max_connections);
                 max_level_index = top_level_index;
             }
 

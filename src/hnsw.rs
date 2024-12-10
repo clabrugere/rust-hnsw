@@ -144,7 +144,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         let mut nearest_neighbors = BinaryHeap::with_capacity(ef); // max heap
         let mut visited = HashSet::new();
 
-        for &entry_id in entry_ids.iter() {
+        for &entry_id in entry_ids {
             let distance = (self.distance_metric)(query, self.nodes.get(&entry_id).unwrap());
             visited.insert(entry_id);
             candidates.push(Reverse(Candidate::new(entry_id, distance)));
@@ -154,28 +154,28 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         while let Some(closest) = candidates.pop().map(|c| c.0) {
             let furthest_distance = nearest_neighbors.peek().map(|c| c.distance).unwrap();
 
+            // all closest neighbors have been explored
             if closest.distance > furthest_distance {
                 break;
             }
 
             if let Some(neighbor_ids) = self.get_neighbors(level_index, closest.id) {
-                for &neighbor_id in neighbor_ids {
-                    if !visited.insert(neighbor_id) {
-                        continue;
-                    }
+                neighbor_ids
+                    .iter()
+                    .filter(|&&neighbor_id| visited.insert(neighbor_id))
+                    .for_each(|&neighbor_id| {
+                        let distance =
+                            (self.distance_metric)(query, self.nodes.get(&neighbor_id).unwrap());
 
-                    let distance =
-                        (self.distance_metric)(query, self.nodes.get(&neighbor_id).unwrap());
+                        if nearest_neighbors.len() < ef || distance < furthest_distance {
+                            candidates.push(Reverse(Candidate::new(neighbor_id, distance)));
+                            nearest_neighbors.push(Candidate::new(neighbor_id, distance));
 
-                    if nearest_neighbors.len() < ef || distance < furthest_distance {
-                        candidates.push(Reverse(Candidate::new(neighbor_id, distance)));
-                        nearest_neighbors.push(Candidate::new(neighbor_id, distance));
-
-                        if nearest_neighbors.len() > ef {
-                            nearest_neighbors.pop();
+                            if nearest_neighbors.len() > ef {
+                                nearest_neighbors.pop();
+                            }
                         }
-                    }
-                }
+                    })
             }
         }
 

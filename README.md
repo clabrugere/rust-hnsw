@@ -124,7 +124,7 @@ collections' previous capacity._
 
 ## References
 
-```bibtext
+```bibtex
 @article{DBLP:journals/corr/MalkovY16,
   author       = {Yury A. Malkov and
                   Dmitry A. Yashunin},

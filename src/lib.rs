@@ -29,9 +29,9 @@ mod tests {
         let vector2 = [4., 5., 6.];
         let vector3 = [7., 8., 9.];
 
-        index.insert(vector1);
-        index.insert(vector2);
-        index.insert(vector3);
+        index.insert(&vector1);
+        index.insert(&vector2);
+        index.insert(&vector3);
 
         assert!(!index.is_empty());
         assert_eq!(index.len(), 3);
@@ -104,7 +104,7 @@ mod tests {
         let mut index = HNSW::new(8, 8, euclidean, rng);
         let vector = [1., 2., 3.];
 
-        index.insert(vector);
+        index.insert(&vector);
         let result = index.search(&vector, 1).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -121,9 +121,9 @@ mod tests {
         let vector2 = [0., 0., 0.];
         let vector3 = [10., 20., 30.];
 
-        index.insert(vector1);
-        index.insert(vector2);
-        index.insert(vector3);
+        index.insert(&vector1);
+        index.insert(&vector2);
+        index.insert(&vector3);
 
         let query = [1.1, 2.1, 3.1];
         let result = index.search(&query, 3).unwrap();

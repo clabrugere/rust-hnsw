@@ -131,7 +131,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         }
     }
 
-    /// Perform BFS search in a level from a starting set of nodes, and return the nearest `ef` closest neighbors found
+    /// Perform BFS in a level from a starting set of nodes, and return the nearest `ef` closest neighbors found
     fn search_level(
         &self,
         level_index: usize,
@@ -182,7 +182,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
         nearest_neighbors.into_sorted_vec()
     }
 
-    fn insert_level_with_node(&mut self, id: usize, max_connections: usize) {
+    fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {
         let level = Level::from([(id, Vec::with_capacity(max_connections))]);
         self.levels.push(level);
     }
@@ -207,20 +207,20 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
                     let distances = edges
                         .iter()
                         .map(|&neighbor_id| {
-                            Candidate::new(
+                            Reverse(Candidate::new(
                                 neighbor_id,
                                 (self.distance_metric)(
                                     query,
                                     self.nodes.get(&neighbor_id).unwrap(),
                                 ),
-                            )
+                            ))
                         })
                         .collect::<BinaryHeap<_>>()
                         .into_sorted_vec();
 
-                    // prune connections to farthest nodes
+                    // prune connections to farthest nodes keeping only the `max_connections` closest
                     edges.clear();
-                    edges.extend(distances.iter().take(max_connections).map(|c| c.id));
+                    edges.extend(distances.iter().take(max_connections).map(|c| c.0.id));
                 }
             }
         }
@@ -241,18 +241,18 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
     }
 
     /// Insert a new vector in the index
-    pub fn insert(&mut self, vector: [T; D]) {
-        let node_id = self.insert_vector(&vector);
+    pub fn insert(&mut self, vector: &[T; D]) {
+        let node_id = self.insert_vector(vector);
 
         if self.levels.is_empty() {
-            self.insert_level_with_node(node_id, self.max_connections_0);
+            self.insert_level_then_node(node_id, self.max_connections_0);
         } else {
             let top_level_index = self.num_levels() - 1;
             let mut max_level_index = self.sample_max_level_index();
 
             // handle the case of sampling a level higher than the current top level
             if max_level_index > top_level_index {
-                self.insert_level_with_node(node_id, self.max_connections);
+                self.insert_level_then_node(node_id, self.max_connections);
                 max_level_index = top_level_index;
             }
 
@@ -262,7 +262,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
             // travel hierarchy for levels above the highest level of this node
             for level_index in (max_level_index + 1..=top_level_index).rev() {
                 entry_ids = self
-                    .search_level(level_index, &vector, &entry_ids, 1)
+                    .search_level(level_index, vector, &entry_ids, 1)
                     .into_iter()
                     .map(|candidate| candidate.id)
                     .collect();
@@ -276,7 +276,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
 
                 // look for neighbors to connect
                 let candidates =
-                    self.search_level(level_index, &vector, &entry_ids, self.ef_construction);
+                    self.search_level(level_index, vector, &entry_ids, self.ef_construction);
 
                 let neighbors = self.select_neighbors(&candidates, self.connections);
                 self.connect_neighbors(level_index, node_id, neighbors);
@@ -287,7 +287,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
 
     /// Insert each element of an iterator in the index
     pub fn insert_batch<I: Iterator<Item = [T; D]>>(&mut self, batch: I) {
-        batch.for_each(|vector| self.insert(vector));
+        batch.for_each(|ref vector| self.insert(vector));
     }
 
     /// Search for the k nearest neighbors from the query vector by traveling the index

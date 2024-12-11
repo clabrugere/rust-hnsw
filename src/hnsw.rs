@@ -3,8 +3,7 @@ use std::cmp::{min, Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
-type Vector<T, const D: usize> = [T; D];
-type Nodes<T, const D: usize> = HashMap<usize, Vector<T, D>>;
+type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
 type Level = HashMap<usize, Vec<usize>>;
 
 /// Utility struct to be used with a binary heap in the neighbor search
@@ -37,12 +36,12 @@ impl Ord for Candidate {
 /// Utility struct to store a nearest neighbor search result
 #[derive(Debug)]
 pub struct SearchResult<'v, T, const D: usize> {
-    pub vector: &'v Vector<T, D>,
+    pub vector: &'v [T; D],
     pub distance: f64,
 }
 
 impl<'v, T, const D: usize> SearchResult<'v, T, D> {
-    pub fn new(vector: &'v Vector<T, D>, distance: f64) -> Self {
+    pub fn new(vector: &'v [T; D], distance: f64) -> Self {
         Self { vector, distance }
     }
 }

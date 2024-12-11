@@ -89,7 +89,7 @@ where
     /// Define the highest level by sampling from an exponentially decaying distribution
     fn sample_max_level_index(&mut self) -> usize {
         let level_multiplier = 1.0 / (self.connections as f64).ln();
-        let log_p = self.rng.gen_range::<f64, _>(0.0..=1.0).ln();
+        let log_p = self.rng.gen_range::<f64, _>(f64::EPSILON..=1.0).ln();
 
         -(log_p * level_multiplier).floor() as usize - 1
     }

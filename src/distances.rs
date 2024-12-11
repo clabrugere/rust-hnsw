@@ -4,10 +4,10 @@ use std::{
 };
 
 /// Compute the squared L2 distance between two vectors and return a f64
-pub fn euclidean<T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>>(
-    x: &[T],
-    y: &[T],
-) -> f64 {
+pub fn euclidean<T>(x: &[T], y: &[T]) -> f64
+where
+    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>,
+{
     x.iter()
         .zip(y)
         .map(|(&xi, &yi)| (xi - yi) * (xi - yi))
@@ -16,7 +16,10 @@ pub fn euclidean<T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Int
 }
 
 /// Compute the cosine distance between two vectors and return a f64
-pub fn cosine<T: Sized + Copy + Into<f64>>(x: &[T], y: &[T]) -> f64 {
+pub fn cosine<T>(x: &[T], y: &[T]) -> f64
+where
+    T: Sized + Copy + Into<f64>,
+{
     let (mut x_norm, mut y_norm, mut dot) = (0.0, 0.0, 0.0);
 
     for (&xi, &yi) in x.iter().zip(y) {

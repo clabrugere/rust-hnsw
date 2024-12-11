@@ -13,7 +13,7 @@ mod tests {
     #[test]
     fn test_new() {
         let rng = SmallRng::seed_from_u64(SEED);
-        let index: HNSW<f64, 3, _> = HNSW::new(1, 1, euclidean, rng);
+        let index: HNSW<f64, 3, _, _> = HNSW::new(1, 1, euclidean, rng);
 
         assert!(index.is_empty());
         assert_eq!(index.len(), 0);

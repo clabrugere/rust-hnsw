@@ -4,7 +4,6 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
 type Vector<T, const D: usize> = [T; D];
-type DistanceMetric<T> = fn(&[T], &[T]) -> f64;
 type Nodes<T, const D: usize> = HashMap<usize, Vector<T, D>>;
 type Level = HashMap<usize, Vec<usize>>;
 
@@ -48,10 +47,10 @@ impl<'v, T, const D: usize> SearchResult<'v, T, D> {
     }
 }
 
-pub struct HNSW<T, const D: usize, R> {
+pub struct HNSW<T, const D: usize, F, R> {
     connections: usize, // M parameter
     ef_construction: usize,
-    distance_metric: DistanceMetric<T>,
+    distance_metric: F,
     rng: R,
     pub(crate) max_connections: usize,   // Mmax parameter
     pub(crate) max_connections_0: usize, // Mmax0
@@ -60,13 +59,13 @@ pub struct HNSW<T, const D: usize, R> {
     pub(super) next_id: usize,
 }
 
-impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
-    pub fn new(
-        connections: usize,
-        ef_construction: usize,
-        distance_metric: DistanceMetric<T>,
-        rng: R,
-    ) -> Self {
+impl<T, const D: usize, F, R> HNSW<T, D, F, R>
+where
+    T: Sized + Copy + Debug,
+    F: Fn(&[T], &[T]) -> f64,
+    R: Rng,
+{
+    pub fn new(connections: usize, ef_construction: usize, distance_metric: F, rng: R) -> Self {
         // heuristic to bound the connectivity of the levels
         let max_connections = (1.5 * (connections as f32)).round() as usize;
         let max_connections_0 = 2 * connections;
@@ -146,6 +145,7 @@ impl<T: Sized + Copy + Debug, const D: usize, R: Rng> HNSW<T, D, R> {
 
         for &entry_id in entry_ids {
             let distance = (self.distance_metric)(query, self.nodes.get(&entry_id).unwrap());
+
             visited.insert(entry_id);
             candidates.push(Reverse(Candidate::new(entry_id, distance)));
             nearest_neighbors.push(Candidate::new(entry_id, distance));

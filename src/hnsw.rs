@@ -1,7 +1,9 @@
 use rand::{seq::IteratorRandom, Rng};
-use std::cmp::{min, Ordering, Reverse};
-use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::fmt::Debug;
+use std::{
+    cmp::{min, Ordering, Reverse},
+    collections::{BinaryHeap, HashMap, HashSet},
+    fmt::Debug,
+};
 
 type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
 type Level = HashMap<usize, Vec<usize>>;

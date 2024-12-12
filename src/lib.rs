@@ -3,10 +3,8 @@ pub mod hnsw;
 
 #[cfg(test)]
 mod tests {
-    use super::distances::euclidean;
-    use super::hnsw::HNSW;
-    use rand::rngs::SmallRng;
-    use rand::SeedableRng;
+    use super::{distances::euclidean, hnsw::HNSW};
+    use rand::{rngs::SmallRng, SeedableRng};
 
     const SEED: u64 = 1234;
 

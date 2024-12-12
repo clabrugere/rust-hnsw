@@ -1,12 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
-use rand::distributions::{Distribution, Uniform};
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{
+    distributions::{Distribution, Uniform},
+    rngs::SmallRng,
+    {Rng, SeedableRng},
+};
+use rust_hnsw::{distances::euclidean, hnsw::HNSW};
 use std::time::Duration;
-
-use rust_hnsw::distances::euclidean;
-use rust_hnsw::hnsw::HNSW;
 
 const SEED: u64 = 1234;
 const LOWD: usize = 3;

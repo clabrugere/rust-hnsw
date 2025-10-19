@@ -3,16 +3,24 @@ use std::{
     ops::{Mul, Sub},
 };
 
-/// Compute the squared L2 distance between two vectors and return a f64
-pub fn euclidean<T>(x: &[T], y: &[T]) -> f64
+/// Compute the squared L2 distance between two vectors
+pub fn squared_euclidean<T>(x: &[T], y: &[T]) -> T
 where
-    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>,
+    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum,
 {
     x.iter()
         .zip(y)
         .map(|(&xi, &yi)| (xi - yi) * (xi - yi))
         .sum::<T>()
         .into()
+}
+
+/// Compute the L2 distance between two vectors
+pub fn euclidean<T>(x: &[T], y: &[T]) -> f64
+where
+    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>,
+{
+    squared_euclidean(x, y).into().sqrt()
 }
 
 /// Compute the cosine distance between two vectors and return a f64
@@ -33,36 +41,46 @@ where
     1.0 - dot / (x_norm.sqrt() * y_norm.sqrt())
 }
 
+pub fn manhattan<T>(x: &[T], y: &[T]) -> f64
+where
+    T: Sized + Copy + Into<f64>,
+{
+    x.iter()
+        .zip(y)
+        .map(|(&xi, &yi)| (xi.into() - yi.into()).abs())
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{cosine, euclidean};
+    use super::*;
 
     #[test]
     fn test_squared_euclidean_zero_distance() {
         let x = [1, 2, 3];
         let y = [1, 2, 3];
-        assert_eq!(euclidean(&x, &y), 0.0);
+        assert_eq!(squared_euclidean(&x, &y), 0);
     }
 
     #[test]
     fn test_squared_euclidean_zero_values() {
         let x = [0, 0, 0];
         let y = [0, 0, 0];
-        assert_eq!(euclidean(&x, &y), 0.0);
+        assert_eq!(squared_euclidean(&x, &y), 0);
     }
 
     #[test]
     fn test_squared_euclidean_integers() {
         let x = [1, -2, 3];
         let y = [-1, 2, -3];
-        assert_eq!(euclidean(&x, &y), 56.0);
+        assert_eq!(squared_euclidean(&x, &y), 56);
     }
 
     #[test]
     fn test_squared_euclidean_floating_point() {
         let x = [1.0, 2.0, 3.0];
         let y = [4.0, 5.0, 6.0];
-        let expected: f64 = euclidean(&x, &y) - 27.0;
+        let expected: f64 = squared_euclidean(&x, &y) - 27.0;
         assert!(expected.abs() < f64::EPSILON);
     }
 
@@ -74,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cosine_identical_vectors() {
+    fn test_cosine_zero_distance() {
         let x = [1.0, 2.0, 3.0];
         assert!(cosine(&x, &x).abs() < f64::EPSILON);
     }
@@ -99,5 +117,37 @@ mod tests {
         let y = [4.0, 5.0, 6.0];
         let expected = 0.025368153802923787;
         assert!((cosine(&x, &y) - expected).abs() < 1e-16);
+    }
+
+    #[test]
+    fn test_manhattan() {
+        let x = [1.0, 2.0, 3.0];
+        let y = [2.0, 4.0, 6.0];
+        let d = manhattan(&x, &y);
+        assert!((d - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_manhattan_zero_distance() {
+        let x = [5.0, -3.2, 0.0];
+        let y = [5.0, -3.2, 0.0];
+        let d = manhattan(&x, &y);
+        assert!((d - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_manhattan_negative_values() {
+        let x = [-1.0, -2.0, -3.0];
+        let y = [1.0, 2.0, 3.0];
+        let d = manhattan(&x, &y);
+        assert!((d - 12.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_manhattan_integer_input() {
+        let x = [1, 2, 3, 4];
+        let y = [4, 3, 2, 1];
+        let d = manhattan(&x, &y);
+        assert!((d - 8.0).abs() < 1e-9);
     }
 }

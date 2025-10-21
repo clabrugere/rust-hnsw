@@ -11,8 +11,7 @@ where
     x.iter()
         .zip(y)
         .map(|(&xi, &yi)| (xi - yi) * (xi - yi))
-        .sum::<T>()
-        .into()
+        .sum()
 }
 
 /// Compute the L2 distance between two vectors
@@ -43,11 +42,11 @@ where
 
 pub fn manhattan<T>(x: &[T], y: &[T]) -> f64
 where
-    T: Sized + Copy + Into<f64>,
+    T: Sized + Copy + Sub<Output = T> + Into<f64>,
 {
     x.iter()
         .zip(y)
-        .map(|(&xi, &yi)| (xi.into() - yi.into()).abs())
+        .map(|(&xi, &yi)| (xi - yi).into().abs())
         .sum()
 }
 

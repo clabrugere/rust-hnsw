@@ -86,7 +86,10 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
                         .collect()
                 },
                 |vectors: Vec<[_; LOWD]>| {
-                    vectors.iter().for_each(|v| index.insert(black_box(v)));
+                    vectors
+                        .iter()
+                        .try_for_each(|v| index.insert(black_box(v)))
+                        .unwrap();
                 },
                 BatchSize::SmallInput,
             );
@@ -104,7 +107,7 @@ fn benchmark_low_d_search(c: &mut Criterion) {
         let data_distribution = Uniform::new(-1.0, 1.0);
         for _ in 0..100 {
             let vector: [_; LOWD] = sample_vector(data_distribution, &mut rng_data);
-            index.insert(&vector);
+            index.insert(&vector).unwrap();
         }
 
         b.iter_batched(
@@ -135,7 +138,10 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
                         .collect()
                 },
                 |vectors: Vec<[_; HIGHD]>| {
-                    vectors.iter().for_each(|v| index.insert(black_box(v)));
+                    vectors
+                        .iter()
+                        .try_for_each(|v| index.insert(black_box(v)))
+                        .unwrap();
                 },
                 BatchSize::SmallInput,
             );
@@ -153,7 +159,7 @@ fn benchmark_high_d_search(c: &mut Criterion) {
         let data_distribution = Uniform::new(-1.0, 1.0);
         for _ in 0..100 {
             let vector: [_; HIGHD] = sample_vector(data_distribution, &mut rng_data);
-            index.insert(&vector);
+            index.insert(&vector).unwrap();
         }
 
         b.iter_batched(

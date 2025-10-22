@@ -74,7 +74,7 @@ use rand::SeedableRng;
 use rust_hnsw::distances::euclidean;
 use rust_hnsw::hnsw::HNSW;
 
-let rng = SmallRng::seed_from_u64(SEED);
+let rng = SmallRng::from_entropy();
 let index: HNSW<f32, 3, _> = HNSW::new(16, 100, euclidean, rng);
 ```
 
@@ -82,23 +82,21 @@ and then add vectors one by one or from an iterator:
 
 ```rust
 let v = [1.0, 2.0, 3.0];
-index.insert(vector1);
+index.insert(&v).unwrap();
 
 let iterator: impl Iterator<Item = [f32; 3]> = ...
-index.insert_batch(iterator);
+index.insert_batch(iterator).unwrap();
 ```
 
 _Note that the index doesn't take ownership of the vector but rather create and stores a copy internally. This is somewhat
 arbitrary because we could take ownership instead without refactoring the architecture._
 
 The `search` method return a vec containing references to the vectors found and their distances to the query wrapped 
-in a small struct `SearchResult`, or an error if the index is empty. To search for nearest neighbors:
+in a small struct `SearchResult`, or an error. To search for nearest neighbors:
 
 ```rust
-// return a Result<Vec<SearchResult<'_, T, D>>, &'static str> 
-if let Ok(results) =  index.search(&vector, 1) {
-    // do something
-}
+// return a Result<Vec<SearchResult<'_, T, D>>, IndexError> 
+results =  index.search(&vector, 1)?;
 ```
 
 Finally, to remove every vectors and reset the index:

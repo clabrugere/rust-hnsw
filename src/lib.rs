@@ -1,4 +1,5 @@
 pub mod distances;
+mod errors;
 pub mod hnsw;
 
 #[cfg(test)]
@@ -8,10 +9,14 @@ mod tests {
 
     const SEED: u64 = 1234;
 
+    fn create_index() -> HNSW<f64, 3, for<'a, 'b> fn(&'a [f64], &'b [f64]) -> f64, SmallRng> {
+        let rng = SmallRng::seed_from_u64(SEED);
+        HNSW::new(8, 8, euclidean, rng)
+    }
+
     #[test]
     fn test_new() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let index: HNSW<f64, 3, _, _> = HNSW::new(1, 1, euclidean, rng);
+        let index = create_index();
 
         assert!(index.is_empty());
         assert_eq!(index.len(), 0);
@@ -20,16 +25,15 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
+        let mut index = create_index();
 
         let vector1 = [1., 2., 3.];
         let vector2 = [4., 5., 6.];
         let vector3 = [7., 8., 9.];
 
-        index.insert(&vector1);
-        index.insert(&vector2);
-        index.insert(&vector3);
+        index.insert(&vector1).unwrap();
+        index.insert(&vector2).unwrap();
+        index.insert(&vector3).unwrap();
 
         assert!(!index.is_empty());
         assert_eq!(index.len(), 3);
@@ -40,11 +44,10 @@ mod tests {
 
     #[test]
     fn test_insert_iterator() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
-        let iterator = (0..3).map(|i| [i as f64; 2]);
+        let mut index = create_index();
+        let iterator = (0..3).map(|i| [i as f64; 3]);
 
-        index.insert_batch(iterator);
+        index.insert_batch(iterator).unwrap();
 
         assert!(!index.is_empty());
         assert_eq!(index.len(), 3);
@@ -52,10 +55,8 @@ mod tests {
 
     #[test]
     fn test_level_density_decay() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
-
-        index.insert_batch((0..10).map(|i| [i as f64; 2]));
+        let mut index = create_index();
+        index.insert_batch((0..10).map(|i| [i as f64; 3])).unwrap();
 
         // check that the number of nodes in levels is smaller the higher the level
         let structure_ok = index.levels.windows(2).all(|w| {
@@ -68,10 +69,8 @@ mod tests {
 
     #[test]
     fn test_max_connections() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
-
-        index.insert_batch((0..10).map(|i| [i as f64; 2]));
+        let mut index = create_index();
+        index.insert_batch((0..10).map(|i| [i as f64; 3])).unwrap();
 
         let structure_ok = index.levels.iter().enumerate().all(|(level_index, level)| {
             level.values().all(move |edges| {
@@ -89,8 +88,7 @@ mod tests {
 
     #[test]
     fn test_search_empty() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
+        let mut index = create_index();
         let vector = [1., 2., 3.];
 
         assert!(index.search(&vector, 1).is_err());
@@ -98,11 +96,10 @@ mod tests {
 
     #[test]
     fn test_search_exact() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
+        let mut index = create_index();
         let vector = [1., 2., 3.];
 
-        index.insert(&vector);
+        index.insert(&vector).unwrap();
         let result = index.search(&vector, 1).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -111,34 +108,87 @@ mod tests {
     }
 
     #[test]
-    fn test_search() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
+    fn test_search_ordering() {
+        let mut index = create_index();
+        let vector1 = [1., 1., 1.]; // distance ~1.73 from origin
+        let vector2 = [0., 0., 0.]; // distance 0 from origin
+        let vector3 = [2., 2., 2.]; // distance ~3.46 from origin
+        let vector4 = [0.5, 0.5, 0.5]; // distance ~0.87 from origin
 
+        index.insert(&vector1).unwrap();
+        index.insert(&vector2).unwrap();
+        index.insert(&vector3).unwrap();
+        index.insert(&vector4).unwrap();
+
+        let query = [0., 0., 0.];
+        let result = index.search(&query, 4).unwrap();
+
+        assert_eq!(result.len(), 4);
+        // Results should be ordered by distance (closest first)
+        assert_eq!(result[0].vector, &vector2); // closest
+        assert_eq!(result[1].vector, &vector4); // second closest
+        assert_eq!(result[2].vector, &vector1); // third closest
+        assert_eq!(result[3].vector, &vector3); // farthest
+
+        // Verify distances are in ascending order
+        for i in 1..result.len() {
+            assert!(result[i - 1].distance <= result[i].distance);
+        }
+    }
+
+    #[test]
+    fn test_search_k_larger_than_index() {
+        let mut index = create_index();
         let vector1 = [1., 2., 3.];
-        let vector2 = [0., 0., 0.];
-        let vector3 = [10., 20., 30.];
+        let vector2 = [4., 5., 6.];
 
-        index.insert(&vector1);
-        index.insert(&vector2);
-        index.insert(&vector3);
+        index.insert(&vector1).unwrap();
+        index.insert(&vector2).unwrap();
 
-        let query = [1.1, 2.1, 3.1];
+        let query = [0., 0., 0.];
+        let result = index.search(&query, 10).unwrap(); // k > index size
+
+        assert_eq!(result.len(), 2); // Should return all available vectors
+        assert!(result.iter().any(|r| r.vector == &vector1));
+        assert!(result.iter().any(|r| r.vector == &vector2));
+    }
+
+    #[test]
+    fn test_search_k_zero() {
+        let mut index = create_index();
+        let vector = [1., 2., 3.];
+        index.insert(&vector).unwrap();
+
+        let query = [0., 0., 0.];
+        let result = index.search(&query, 0).unwrap();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_search_with_duplicates() {
+        let mut index = create_index();
+        let vector1 = [1., 2., 3.];
+        let vector2 = [1., 2., 3.]; // duplicate
+        let vector3 = [4., 5., 6.];
+
+        index.insert(&vector1).unwrap();
+        index.insert(&vector2).unwrap();
+        index.insert(&vector3).unwrap();
+
+        let query = [1., 2., 3.];
         let result = index.search(&query, 3).unwrap();
 
         assert_eq!(result.len(), 3);
-        assert_eq!(
-            result.iter().map(|r| r.vector).collect::<Vec<_>>(),
-            &[&vector1, &vector2, &vector3]
-        );
+        // First two results should have distance 0 (exact matches)
+        assert!(result[0].distance.abs() < f64::EPSILON);
+        assert!(result[1].distance.abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_clear() {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(8, 8, euclidean, rng);
-
-        index.insert_batch((0..10).map(|i| [i as f64; 2]));
+        let mut index = create_index();
+        index.insert_batch((0..10).map(|i| [i as f64; 3])).unwrap();
 
         assert_eq!(index.len(), 10);
 

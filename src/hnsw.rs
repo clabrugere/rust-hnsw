@@ -48,7 +48,7 @@ impl<'v, T, const D: usize> SearchResult<'v, T, D> {
 }
 
 type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
-type Level = HashMap<usize, Vec<usize>>;
+type Level = HashMap<usize, HashSet<usize>>;
 type Candidates = Vec<Candidate>;
 
 pub struct HNSW<T, const D: usize, F, R> {
@@ -99,7 +99,7 @@ where
         &self,
         level_index: usize,
         node_id: usize,
-    ) -> Result<&Vec<usize>, IndexError> {
+    ) -> Result<&HashSet<usize>, IndexError> {
         self.levels[level_index]
             .get(&node_id)
             .ok_or(IndexError::NodeNotFoundInLevel {
@@ -112,7 +112,7 @@ where
         &mut self,
         level_index: usize,
         node_id: usize,
-    ) -> Result<&mut Vec<usize>, IndexError> {
+    ) -> Result<&mut HashSet<usize>, IndexError> {
         self.levels[level_index]
             .get_mut(&node_id)
             .ok_or(IndexError::NodeNotFoundInLevel {
@@ -132,11 +132,11 @@ where
         let level_multiplier = 1.0 / (self.connections as f64).ln();
         let log_p = self.rng.random_range::<f64, _>(f64::EPSILON..=1.0).ln();
 
-        -(log_p * level_multiplier).floor() as usize - 1
+        (-(log_p * level_multiplier).floor() as usize - 1).max(0)
     }
 
     fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {
-        let level = Level::from([(id, Vec::with_capacity(max_connections))]);
+        let level = Level::from([(id, HashSet::with_capacity(max_connections))]);
         self.levels.push(level);
     }
 
@@ -172,7 +172,7 @@ where
     }
 
     /// Returns all the indices of neighboring nodes of a given node id and level index, if they exist
-    fn get_neighbors(&self, level_index: usize, node_id: usize) -> Option<&Vec<usize>> {
+    fn get_neighbors(&self, level_index: usize, node_id: usize) -> Option<&HashSet<usize>> {
         self.levels[level_index].get(&node_id)
     }
 
@@ -185,9 +185,9 @@ where
     ) -> Result<(), IndexError> {
         for &Candidate { id, .. } in neighbors {
             self.get_node_edgelist_mut(level_index, node_id)
-                .map(|edge_list| edge_list.push(id))?;
+                .map(|edge_list| edge_list.insert(id))?;
             self.get_node_edgelist_mut(level_index, id)
-                .map(|edge_list| edge_list.push(node_id))?;
+                .map(|edge_list| edge_list.insert(node_id))?;
         }
         Ok(())
     }
@@ -324,7 +324,7 @@ where
             for level_index in (0..=max_level_index).rev() {
                 // add the node to the level
                 let max_connections = self.get_max_connections(level_index);
-                self.levels[level_index].insert(node_id, Vec::with_capacity(max_connections));
+                self.levels[level_index].insert(node_id, HashSet::with_capacity(max_connections));
 
                 // look for neighbors to connect
                 let candidates =
@@ -339,7 +339,10 @@ where
     }
 
     /// Insert each element of an iterator in the index
-    pub fn insert_batch(&mut self, batch: impl Iterator<Item = [T; D]>) -> Result<(), IndexError> {
+    pub fn insert_batch(
+        &mut self,
+        batch: impl IntoIterator<Item = [T; D]>,
+    ) -> Result<(), IndexError> {
         for vector in batch {
             self.insert(&vector)?;
         }

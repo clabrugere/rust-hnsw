@@ -188,6 +188,9 @@ where
                 .map(|edge_list| edge_list.insert(id))?;
             self.get_node_edgelist_mut(level_index, id)
                 .map(|edge_list| edge_list.insert(node_id))?;
+
+            self.prune_connections(level_index, node_id)?;
+            self.prune_connections(level_index, id)?;
         }
         Ok(())
     }
@@ -246,33 +249,30 @@ where
         Ok(nearest_neighbors.into_sorted_vec())
     }
 
-    fn prune_connections(
-        &mut self,
-        level_index: usize,
-        neighbors: &[Candidate],
-    ) -> Result<(), IndexError> {
+    fn prune_connections(&mut self, level_index: usize, node_id: usize) -> Result<(), IndexError> {
         // special case for the base level as described in the paper, they recommend to set it to 2M
         let max_connections = self.get_max_connections(level_index);
-
-        for &Candidate { id, .. } in neighbors {
-            let edges = self.get_node_edgelist(level_index, id)?;
-            if edges.len() > max_connections {
-                let query = self.get_vector(id)?;
-                let distances = edges
-                    .iter()
-                    .map(|&neighbor_id| {
-                        let distance = self.distance(query, self.get_vector(neighbor_id)?);
-                        Ok(Reverse(Candidate::new(neighbor_id, distance)))
-                    })
-                    .collect::<Result<BinaryHeap<_>, _>>()?
-                    .into_sorted_vec();
-
-                let edges = self.get_node_edgelist_mut(level_index, id)?;
-                // prune connections to farthest nodes keeping only the `max_connections` closest
-                edges.clear();
-                edges.extend(distances.iter().take(max_connections).map(|c| c.0.id));
-            }
+        let edges = self.get_node_edgelist(level_index, node_id)?;
+        if edges.len() <= max_connections {
+            return Ok(());
         }
+
+        let query = self.get_vector(node_id)?;
+        let mut distances = edges
+            .iter()
+            .map(|&neighbor_id| {
+                let distance = self.distance(query, self.get_vector(neighbor_id)?);
+                Ok(Reverse(Candidate::new(neighbor_id, distance)))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        distances.select_nth_unstable_by(max_connections, |a, b| a.0.cmp(&b.0));
+        distances.truncate(max_connections);
+
+        // prune connections to farthest nodes keeping only the `max_connections` closest
+        let edges = self.get_node_edgelist_mut(level_index, node_id)?;
+        edges.clear();
+        edges.extend(distances.into_iter().map(|c| c.0.id));
         Ok(())
     }
 
@@ -332,7 +332,6 @@ where
 
                 let neighbors = self.select_neighbors(&candidates, self.connections);
                 self.connect_neighbors(level_index, node_id, neighbors)?;
-                self.prune_connections(level_index, neighbors)?;
             }
             Ok(())
         }

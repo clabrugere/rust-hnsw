@@ -132,7 +132,7 @@ where
         let level_multiplier = 1.0 / (self.connections as f64).ln();
         let log_p = self.rng.random_range::<f64, _>(f64::EPSILON..=1.0).ln();
 
-        (-(log_p * level_multiplier).floor()).max(0.0) as usize - 1
+        (-(log_p * level_multiplier).floor()).max(1.0) as usize - 1
     }
 
     fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {

@@ -130,7 +130,7 @@ where
     /// Define the highest level by sampling from an exponentially decaying distribution
     fn sample_max_level_index(&mut self) -> usize {
         let level_multiplier = 1.0 / (self.connections as f64).ln();
-        let log_p = self.rng.gen_range::<f64, _>(f64::EPSILON..=1.0).ln();
+        let log_p = self.rng.random_range::<f64, _>(f64::EPSILON..=1.0).ln();
 
         -(log_p * level_multiplier).floor() as usize - 1
     }
@@ -216,7 +216,7 @@ where
             let furthest_distance = nearest_neighbors
                 .peek()
                 .map(|c| c.distance)
-                .ok_or(IndexError::NoCandidatesNeighbors)?;
+                .ok_or(IndexError::NoNeighborCandidates)?;
 
             // all closest neighbors have been explored
             if closest.distance > furthest_distance {

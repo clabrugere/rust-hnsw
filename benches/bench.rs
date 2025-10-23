@@ -1,11 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use pprof::criterion::{Output, PProfProfiler};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use rand::{
-    distributions::{Distribution, Uniform},
+    distr::{Distribution, Uniform},
     rngs::SmallRng,
     {Rng, SeedableRng},
 };
 use rust_hnsw::{distances::euclidean, hnsw::HNSW};
+use std::hint::black_box;
 use std::time::Duration;
 
 const SEED: u64 = 1234;
@@ -17,7 +17,6 @@ fn get_config() -> Criterion {
         .significance_level(0.1)
         .sample_size(100)
         .measurement_time(Duration::new(10, 0))
-        .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
 }
 
 fn sample_vector<const D: usize, R: Rng>(
@@ -35,7 +34,7 @@ fn sample_vector<const D: usize, R: Rng>(
 fn benchmark_low_d_distance(c: &mut Criterion) {
     c.bench_function("low-d distance", |b| {
         let mut rng_data = SmallRng::seed_from_u64(SEED);
-        let data_distribution = Uniform::new(-1.0, 1.0);
+        let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
 
         b.iter_batched(
             || {
@@ -53,7 +52,7 @@ fn benchmark_low_d_distance(c: &mut Criterion) {
 fn benchmark_high_d_distance(c: &mut Criterion) {
     c.bench_function("high-d distance", |b| {
         let mut rng_data = SmallRng::seed_from_u64(SEED);
-        let data_distribution = Uniform::new(-1.0, 1.0);
+        let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
 
         b.iter_batched(
             || {
@@ -77,7 +76,7 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
             let mut index = HNSW::new(16, 100, euclidean, rng);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
-            let data_distribution = Uniform::new(-1.0, 1.0);
+            let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
 
             b.iter_batched(
                 || {
@@ -104,7 +103,7 @@ fn benchmark_low_d_search(c: &mut Criterion) {
         let mut index = HNSW::new(16, 100, euclidean, rng);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
-        let data_distribution = Uniform::new(-1.0, 1.0);
+        let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
         for _ in 0..100 {
             let vector: [_; LOWD] = sample_vector(data_distribution, &mut rng_data);
             index.insert(&vector).unwrap();
@@ -129,7 +128,7 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
             let mut index = HNSW::new(16, 100, euclidean, rng);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
-            let data_distribution = Uniform::new(-1.0, 1.0);
+            let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
 
             b.iter_batched(
                 || {
@@ -156,7 +155,7 @@ fn benchmark_high_d_search(c: &mut Criterion) {
         let mut index = HNSW::new(16, 100, euclidean, rng);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
-        let data_distribution = Uniform::new(-1.0, 1.0);
+        let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
         for _ in 0..100 {
             let vector: [_; HIGHD] = sample_vector(data_distribution, &mut rng_data);
             index.insert(&vector).unwrap();

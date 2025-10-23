@@ -132,7 +132,7 @@ where
         let level_multiplier = 1.0 / (self.connections as f64).ln();
         let log_p = self.rng.random_range::<f64, _>(f64::EPSILON..=1.0).ln();
 
-        (-(log_p * level_multiplier).floor() as usize - 1).max(0)
+        (-(log_p * level_multiplier).floor()).max(0.0) as usize - 1
     }
 
     fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {
@@ -203,6 +203,10 @@ where
         entry_ids: &[usize],
         ef: usize,
     ) -> Result<Candidates, IndexError> {
+        if ef == 0 {
+            return Ok(Vec::new());
+        }
+
         let max_connections = self.get_max_connections(level_index);
         let mut candidates = BinaryHeap::with_capacity(max_connections); // min heap
         let mut nearest_neighbors = BinaryHeap::with_capacity(ef); // max heap
@@ -216,7 +220,7 @@ where
         }
 
         while let Some(closest) = candidates.pop().map(|c| c.0) {
-            let furthest_distance = nearest_neighbors
+            let mut furthest_distance = nearest_neighbors
                 .peek()
                 .map(|c| c.distance)
                 .ok_or(IndexError::NoNeighborCandidates)?;
@@ -240,6 +244,10 @@ where
                             if nearest_neighbors.len() > ef {
                                 nearest_neighbors.pop();
                             }
+                            furthest_distance = nearest_neighbors
+                                .peek()
+                                .map(|c| c.distance)
+                                .unwrap_or(f64::INFINITY);
                         }
                         Ok(())
                     })?

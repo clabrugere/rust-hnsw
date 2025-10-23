@@ -266,7 +266,7 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        distances.select_nth_unstable_by(max_connections, |a, b| a.0.cmp(&b.0));
+        distances.select_nth_unstable(max_connections);
         distances.truncate(max_connections);
 
         // prune connections to farthest nodes keeping only the `max_connections` closest

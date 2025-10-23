@@ -1,21 +1,15 @@
 use rand::{seq::IteratorRandom, Rng};
-use std::cmp::{min, Ordering, Reverse};
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
 use super::errors::IndexError;
 
 /// Utility struct to be used with a binary heap in the neighbor search
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct Candidate {
     pub id: usize,
     pub distance: f64,
-}
-
-impl Candidate {
-    pub fn new(id: usize, distance: f64) -> Self {
-        Self { id, distance }
-    }
 }
 
 impl Eq for Candidate {}
@@ -39,12 +33,6 @@ impl Ord for Candidate {
 pub struct SearchResult<'v, T, const D: usize> {
     pub vector: &'v [T; D],
     pub distance: f64,
-}
-
-impl<'v, T, const D: usize> SearchResult<'v, T, D> {
-    pub fn new(vector: &'v [T; D], distance: f64) -> Self {
-        Self { vector, distance }
-    }
 }
 
 type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
@@ -168,7 +156,11 @@ where
 
     // TODO: implement heuristic as described in the paper
     fn select_neighbors<'c>(&self, candidates: &'c [Candidate], k: usize) -> &'c [Candidate] {
-        &candidates[..=min(k, candidates.len() - 1)]
+        if candidates.len() <= k {
+            candidates
+        } else {
+            &candidates[..k]
+        }
     }
 
     /// Returns all the indices of neighboring nodes of a given node id and level index, if they exist
@@ -177,6 +169,7 @@ where
     }
 
     /// Create a bidirectional edge between a node id and a set of neighbors, in a given level
+    /// TODO: maintain Edge {id, distance} instead of just id to avoid recomputing distances so we can prune while adding edges
     fn connect_neighbors(
         &mut self,
         level_index: usize,
@@ -192,6 +185,37 @@ where
             self.prune_connections(level_index, node_id)?;
             self.prune_connections(level_index, id)?;
         }
+        Ok(())
+    }
+
+    fn prune_connections(&mut self, level_index: usize, node_id: usize) -> Result<(), IndexError> {
+        // special case for the base level as described in the paper, they recommend to set it to 2M
+        let max_connections = self.get_max_connections(level_index);
+        let edges = self.get_node_edgelist(level_index, node_id)?;
+        if edges.len() <= max_connections {
+            return Ok(());
+        }
+
+        let query = self.get_vector(node_id)?;
+        let mut distances = edges
+            .iter()
+            .map(|&neighbor_id| {
+                let distance = self.distance(query, self.get_vector(neighbor_id)?);
+                let candidate = Reverse(Candidate {
+                    id: neighbor_id,
+                    distance,
+                });
+                Ok(candidate)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        distances.select_nth_unstable(max_connections);
+        distances.truncate(max_connections);
+
+        // prune connections to farthest nodes keeping only the `max_connections` closest
+        let edges = self.get_node_edgelist_mut(level_index, node_id)?;
+        edges.clear();
+        edges.extend(distances.into_iter().map(|c| c.0.id));
         Ok(())
     }
 
@@ -214,9 +238,13 @@ where
 
         for &entry_id in entry_ids {
             let distance = self.distance(query, self.get_vector(entry_id)?);
+            let candidate = Candidate {
+                id: entry_id,
+                distance,
+            };
+            candidates.push(Reverse(candidate));
+            nearest_neighbors.push(candidate);
             visited.insert(entry_id);
-            candidates.push(Reverse(Candidate::new(entry_id, distance)));
-            nearest_neighbors.push(Candidate::new(entry_id, distance));
         }
 
         while let Some(closest) = candidates.pop().map(|c| c.0) {
@@ -238,8 +266,12 @@ where
                         let distance = self.distance(query, self.get_vector(neighbor_id)?);
 
                         if nearest_neighbors.len() < ef || distance < furthest_distance {
-                            candidates.push(Reverse(Candidate::new(neighbor_id, distance)));
-                            nearest_neighbors.push(Candidate::new(neighbor_id, distance));
+                            let candidate = Candidate {
+                                id: neighbor_id,
+                                distance,
+                            };
+                            candidates.push(Reverse(candidate));
+                            nearest_neighbors.push(candidate);
 
                             if nearest_neighbors.len() > ef {
                                 nearest_neighbors.pop();
@@ -255,33 +287,6 @@ where
         }
 
         Ok(nearest_neighbors.into_sorted_vec())
-    }
-
-    fn prune_connections(&mut self, level_index: usize, node_id: usize) -> Result<(), IndexError> {
-        // special case for the base level as described in the paper, they recommend to set it to 2M
-        let max_connections = self.get_max_connections(level_index);
-        let edges = self.get_node_edgelist(level_index, node_id)?;
-        if edges.len() <= max_connections {
-            return Ok(());
-        }
-
-        let query = self.get_vector(node_id)?;
-        let mut distances = edges
-            .iter()
-            .map(|&neighbor_id| {
-                let distance = self.distance(query, self.get_vector(neighbor_id)?);
-                Ok(Reverse(Candidate::new(neighbor_id, distance)))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        distances.select_nth_unstable(max_connections);
-        distances.truncate(max_connections);
-
-        // prune connections to farthest nodes keeping only the `max_connections` closest
-        let edges = self.get_node_edgelist_mut(level_index, node_id)?;
-        edges.clear();
-        edges.extend(distances.into_iter().map(|c| c.0.id));
-        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -387,8 +392,11 @@ where
                 .search_level(0, query, &entry_ids, k)?
                 .into_iter()
                 .map(|c| {
-                    let vector = self.get_vector(c.id)?;
-                    Ok(SearchResult::new(vector, c.distance))
+                    let result = SearchResult {
+                        vector: self.get_vector(c.id)?,
+                        distance: c.distance,
+                    };
+                    Ok(result)
                 })
                 .collect::<Result<Vec<_>, IndexError>>()?;
 

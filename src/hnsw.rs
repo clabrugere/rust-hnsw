@@ -1,13 +1,13 @@
 use rand::{seq::IteratorRandom, Rng};
 use std::cmp::{Ordering, Reverse};
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
 use super::errors::IndexError;
 
 /// Utility struct to be used with a binary heap in the neighbor search
 #[derive(Debug, Copy, Clone, PartialEq)]
-struct Candidate {
+pub(super) struct Candidate {
     pub id: usize,
     pub distance: f64,
 }
@@ -22,9 +22,53 @@ impl PartialOrd for Candidate {
 
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.distance
+        // tie breaker on id to ensure deterministic ordering
+        match self
+            .distance
             .partial_cmp(&other.distance)
             .unwrap_or(Ordering::Equal)
+        {
+            Ordering::Equal => self.id.cmp(&other.id),
+            ord => ord,
+        }
+    }
+}
+
+// Utility struct to maintain a fixed capacity ordered set of candidates, popping the worst candidate when exceeding capacity
+#[derive(Debug)]
+pub(super) struct SortedEdgeList {
+    pub(super) set: BTreeSet<Candidate>,
+    capacity: usize,
+}
+
+impl SortedEdgeList {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            set: BTreeSet::new(),
+            capacity,
+        }
+    }
+
+    fn insert(&mut self, candidate: Candidate) {
+        // remove existing candidate with same id if the new one is closer
+        if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).cloned() {
+            if existing.distance > candidate.distance {
+                self.set.remove(&existing);
+            }
+        }
+
+        self.set.insert(candidate);
+
+        // remove the worst (largest distance) if capacity exceeded
+        if self.set.len() > self.capacity {
+            if let Some(&worst) = self.set.iter().next_back() {
+                self.set.remove(&worst);
+            }
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+        self.set.iter().map(|c| c.id)
     }
 }
 
@@ -36,7 +80,7 @@ pub struct SearchResult<'v, T, const D: usize> {
 }
 
 type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
-type Level = HashMap<usize, HashSet<usize>>;
+type Level = HashMap<usize, SortedEdgeList>;
 type Candidates = Vec<Candidate>;
 
 pub struct HNSW<T, const D: usize, F, R> {
@@ -83,24 +127,11 @@ where
         (self.distance_metric)(a, b)
     }
 
-    fn get_node_edgelist(
-        &self,
-        level_index: usize,
-        node_id: usize,
-    ) -> Result<&HashSet<usize>, IndexError> {
-        self.levels[level_index]
-            .get(&node_id)
-            .ok_or(IndexError::NodeNotFoundInLevel {
-                level_index,
-                node_id,
-            })
-    }
-
-    fn get_node_edgelist_mut(
+    fn get_edgelist_mut(
         &mut self,
         level_index: usize,
         node_id: usize,
-    ) -> Result<&mut HashSet<usize>, IndexError> {
+    ) -> Result<&mut SortedEdgeList, IndexError> {
         self.levels[level_index]
             .get_mut(&node_id)
             .ok_or(IndexError::NodeNotFoundInLevel {
@@ -124,7 +155,7 @@ where
     }
 
     fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {
-        let level = Level::from([(id, HashSet::with_capacity(max_connections))]);
+        let level = Level::from([(id, SortedEdgeList::new(max_connections))]);
         self.levels.push(level);
     }
 
@@ -164,58 +195,30 @@ where
     }
 
     /// Returns all the indices of neighboring nodes of a given node id and level index, if they exist
-    fn get_neighbors(&self, level_index: usize, node_id: usize) -> Option<&HashSet<usize>> {
+    fn get_neighbors(&self, level_index: usize, node_id: usize) -> Option<&SortedEdgeList> {
         self.levels[level_index].get(&node_id)
     }
 
     /// Create a bidirectional edge between a node id and a set of neighbors, in a given level
-    /// TODO: maintain Edge {id, distance} instead of just id to avoid recomputing distances so we can prune while adding edges
+    /// Pop edge with largest distance if the edge list reached capacity (pruning step)
     fn connect_neighbors(
         &mut self,
         level_index: usize,
         node_id: usize,
         neighbors: &[Candidate],
     ) -> Result<(), IndexError> {
-        for &Candidate { id, .. } in neighbors {
-            self.get_node_edgelist_mut(level_index, node_id)
-                .map(|edge_list| edge_list.insert(id))?;
-            self.get_node_edgelist_mut(level_index, id)
-                .map(|edge_list| edge_list.insert(node_id))?;
+        for candidate in neighbors {
+            self.get_edgelist_mut(level_index, node_id)
+                .map(|edge_list| edge_list.insert(*candidate))?;
 
-            self.prune_connections(level_index, node_id)?;
-            self.prune_connections(level_index, id)?;
+            self.get_edgelist_mut(level_index, candidate.id)
+                .map(|edge_list| {
+                    edge_list.insert(Candidate {
+                        id: node_id,
+                        distance: candidate.distance,
+                    })
+                })?;
         }
-        Ok(())
-    }
-
-    fn prune_connections(&mut self, level_index: usize, node_id: usize) -> Result<(), IndexError> {
-        // special case for the base level as described in the paper, they recommend to set it to 2M
-        let max_connections = self.get_max_connections(level_index);
-        let edges = self.get_node_edgelist(level_index, node_id)?;
-        if edges.len() <= max_connections {
-            return Ok(());
-        }
-
-        let query = self.get_vector(node_id)?;
-        let mut distances = edges
-            .iter()
-            .map(|&neighbor_id| {
-                let distance = self.distance(query, self.get_vector(neighbor_id)?);
-                let candidate = Reverse(Candidate {
-                    id: neighbor_id,
-                    distance,
-                });
-                Ok(candidate)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        distances.select_nth_unstable(max_connections);
-        distances.truncate(max_connections);
-
-        // prune connections to farthest nodes keeping only the `max_connections` closest
-        let edges = self.get_node_edgelist_mut(level_index, node_id)?;
-        edges.clear();
-        edges.extend(distances.into_iter().map(|c| c.0.id));
         Ok(())
     }
 
@@ -259,30 +262,30 @@ where
             }
 
             if let Some(neighbor_ids) = self.get_neighbors(level_index, closest.id) {
-                neighbor_ids
+                let unvisited_neighbor_ids = neighbor_ids
                     .iter()
-                    .filter(|&&neighbor_id| visited.insert(neighbor_id))
-                    .try_for_each(|&neighbor_id| {
-                        let distance = self.distance(query, self.get_vector(neighbor_id)?);
+                    .filter(|&neighbor_id| visited.insert(neighbor_id));
 
-                        if nearest_neighbors.len() < ef || distance < furthest_distance {
-                            let candidate = Candidate {
-                                id: neighbor_id,
-                                distance,
-                            };
-                            candidates.push(Reverse(candidate));
-                            nearest_neighbors.push(candidate);
+                for neighbor_id in unvisited_neighbor_ids {
+                    let distance = self.distance(query, self.get_vector(neighbor_id)?);
 
-                            if nearest_neighbors.len() > ef {
-                                nearest_neighbors.pop();
-                            }
-                            furthest_distance = nearest_neighbors
-                                .peek()
-                                .map(|c| c.distance)
-                                .unwrap_or(f64::INFINITY);
+                    if nearest_neighbors.len() < ef || distance < furthest_distance {
+                        let candidate = Candidate {
+                            id: neighbor_id,
+                            distance,
+                        };
+                        candidates.push(Reverse(candidate));
+                        nearest_neighbors.push(candidate);
+
+                        if nearest_neighbors.len() > ef {
+                            nearest_neighbors.pop();
                         }
-                        Ok(())
-                    })?
+                        furthest_distance = nearest_neighbors
+                            .peek()
+                            .map(|c| c.distance)
+                            .unwrap_or(f64::INFINITY);
+                    }
+                }
             }
         }
 
@@ -337,7 +340,7 @@ where
             for level_index in (0..=max_level_index).rev() {
                 // add the node to the level
                 let max_connections = self.get_max_connections(level_index);
-                self.levels[level_index].insert(node_id, HashSet::with_capacity(max_connections));
+                self.levels[level_index].insert(node_id, SortedEdgeList::new(max_connections));
 
                 // look for neighbors to connect
                 let candidates =

@@ -79,7 +79,7 @@ mod tests {
                 } else {
                     index.max_connections_0
                 };
-                edges.len() <= max_connections
+                edges.set.len() <= max_connections
             })
         });
 

@@ -312,45 +312,45 @@ where
 
         if self.levels.is_empty() {
             self.insert_level_then_node(node_id, self.max_connections_0);
-            Ok(())
-        } else {
-            let top_level_index = self.num_levels() - 1;
-            let mut max_level_index = self.sample_max_level_index();
-
-            // handle the case of sampling a level higher than the current top level
-            if max_level_index > top_level_index {
-                self.insert_level_then_node(node_id, self.max_connections);
-                max_level_index = top_level_index;
-            }
-
-            // sample entry point
-            let entry_id = self.sample_entry_id(top_level_index)?;
-            let mut entry_ids = Vec::from([entry_id]);
-
-            // travel hierarchy for levels above the highest level of this node
-            for level_index in (max_level_index + 1..=top_level_index).rev() {
-                entry_ids = self
-                    .search_level(level_index, vector, &entry_ids, 1)?
-                    .into_iter()
-                    .map(|candidate| candidate.id)
-                    .collect();
-            }
-
-            // travel hierarchy for levels equal or below the highest level of this node
-            for level_index in (0..=max_level_index).rev() {
-                // add the node to the level
-                let max_connections = self.get_max_connections(level_index);
-                self.levels[level_index].insert(node_id, SortedEdgeList::new(max_connections));
-
-                // look for neighbors to connect
-                let candidates =
-                    self.search_level(level_index, vector, &entry_ids, self.ef_construction)?;
-
-                let neighbors = self.select_neighbors(&candidates, self.connections);
-                self.connect_neighbors(level_index, node_id, neighbors)?;
-            }
-            Ok(())
+            return Ok(());
         }
+
+        let top_level_index = self.num_levels() - 1;
+        let mut max_level_index = self.sample_max_level_index();
+
+        // handle the case of sampling a level higher than the current top level
+        if max_level_index > top_level_index {
+            self.insert_level_then_node(node_id, self.max_connections);
+            max_level_index = top_level_index;
+        }
+
+        // sample entry point
+        let entry_id = self.sample_entry_id(top_level_index)?;
+        let mut entry_ids = Vec::from([entry_id]);
+
+        // travel hierarchy for levels above the highest level of this node
+        for level_index in (max_level_index + 1..=top_level_index).rev() {
+            entry_ids = self
+                .search_level(level_index, vector, &entry_ids, 1)?
+                .into_iter()
+                .map(|candidate| candidate.id)
+                .collect();
+        }
+
+        // travel hierarchy for levels equal or below the highest level of this node
+        for level_index in (0..=max_level_index).rev() {
+            // add the node to the level
+            let max_connections = self.get_max_connections(level_index);
+            self.levels[level_index].insert(node_id, SortedEdgeList::new(max_connections));
+
+            // look for neighbors to connect
+            let candidates =
+                self.search_level(level_index, vector, &entry_ids, self.ef_construction)?;
+
+            let neighbors = self.select_neighbors(&candidates, self.connections);
+            self.connect_neighbors(level_index, node_id, neighbors)?;
+        }
+        Ok(())
     }
 
     /// Insert each element of an iterator in the index
@@ -370,41 +370,42 @@ where
         query: &[T; D],
         k: usize,
     ) -> Result<Vec<SearchResult<'_, T, D>>, IndexError> {
+        // check for edge cases
         if self.is_empty() {
-            Err(IndexError::EmptyIndex)
+            return Err(IndexError::EmptyIndex);
         } else if k == 0 {
-            Ok(Vec::new())
-        } else {
-            // sample a random node in the top layer to start the search from
-            let top_level_index = self.num_levels() - 1;
-            let entry_id = self.sample_entry_id(top_level_index)?;
-            let mut entry_ids = Vec::from([entry_id]);
-
-            // travel the hierarchy from top to bottom by finding the closest entry point for the next level
-            // by construction, we are guaranteed that the node found is also present in all the lower levels
-            for level_index in (1..self.num_levels()).rev() {
-                entry_ids = self
-                    .search_level(level_index, query, &entry_ids, 1)?
-                    .into_iter()
-                    .map(|candidate| candidate.id)
-                    .collect();
-            }
-
-            // perform full search on the lowest level
-            let nearest_neighbors = self
-                .search_level(0, query, &entry_ids, k)?
-                .into_iter()
-                .map(|c| {
-                    let result = SearchResult {
-                        vector: self.get_vector(c.id)?,
-                        distance: c.distance,
-                    };
-                    Ok(result)
-                })
-                .collect::<Result<Vec<_>, IndexError>>()?;
-
-            Ok(nearest_neighbors)
+            return Ok(Vec::new());
         }
+
+        // sample a random node in the top layer to start the search from
+        let top_level_index = self.num_levels() - 1;
+        let entry_id = self.sample_entry_id(top_level_index)?;
+        let mut entry_ids = Vec::from([entry_id]);
+
+        // travel the hierarchy from top to bottom by finding the closest entry point for the next level
+        // by construction, we are guaranteed that the node found is also present in all the lower levels
+        for level_index in (1..self.num_levels()).rev() {
+            entry_ids = self
+                .search_level(level_index, query, &entry_ids, 1)?
+                .into_iter()
+                .map(|candidate| candidate.id)
+                .collect();
+        }
+
+        // perform full search on the lowest level
+        let nearest_neighbors = self
+            .search_level(0, query, &entry_ids, k)?
+            .into_iter()
+            .map(|c| {
+                let result = SearchResult {
+                    vector: self.get_vector(c.id)?,
+                    distance: c.distance,
+                };
+                Ok(result)
+            })
+            .collect::<Result<Vec<_>, IndexError>>()?;
+
+        Ok(nearest_neighbors)
     }
 
     /// Reset the index by deleting all the vectors and layers

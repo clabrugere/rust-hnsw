@@ -5,7 +5,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
 
-use super::errors::IndexError;
+use super::errors::{IndexError, IndexResult};
 
 /// Utility struct to be used with a binary heap in the neighbor search
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -130,7 +130,7 @@ where
         &mut self,
         level_index: usize,
         node_id: usize,
-    ) -> Result<&mut SortedEdgeList, IndexError> {
+    ) -> IndexResult<&mut SortedEdgeList> {
         self.levels[level_index]
             .get_mut(&node_id)
             .ok_or(IndexError::NodeNotFoundInLevel {
@@ -139,7 +139,7 @@ where
             })
     }
 
-    fn get_vector(&self, node_id: usize) -> Result<&[T; D], IndexError> {
+    fn get_vector(&self, node_id: usize) -> IndexResult<&[T; D]> {
         self.nodes
             .get(&node_id)
             .ok_or(IndexError::NodeNotFound(node_id))
@@ -167,7 +167,7 @@ where
     }
 
     /// Randomly sample a node in the top layer. We are guaranteed to have at least one point when invoking this method
-    fn sample_entry_id(&self, level_index: usize) -> Result<usize, IndexError> {
+    fn sample_entry_id(&self, level_index: usize) -> IndexResult<usize> {
         self.levels[level_index]
             .keys()
             .choose(&mut rng())
@@ -205,7 +205,7 @@ where
         level_index: usize,
         node_id: usize,
         neighbors: &[Candidate],
-    ) -> Result<(), IndexError> {
+    ) -> IndexResult<()> {
         for candidate in neighbors {
             self.get_edgelist_mut(level_index, node_id)
                 .map(|edge_list| edge_list.insert(*candidate))?;
@@ -228,7 +228,7 @@ where
         query: &[T; D],
         entry_ids: &[usize],
         ef: usize,
-    ) -> Result<Candidates, IndexError> {
+    ) -> IndexResult<Candidates> {
         if ef == 0 {
             return Ok(Vec::new());
         }
@@ -305,7 +305,7 @@ where
     }
 
     /// Insert a new vector in the index
-    pub fn insert(&mut self, vector: &[T; D]) -> Result<(), IndexError> {
+    pub fn insert(&mut self, vector: &[T; D]) -> IndexResult<()> {
         let node_id = self.insert_vector(vector);
 
         if self.levels.is_empty() {
@@ -352,10 +352,7 @@ where
     }
 
     /// Insert each element of an iterator in the index
-    pub fn insert_batch(
-        &mut self,
-        batch: impl IntoIterator<Item = [T; D]>,
-    ) -> Result<(), IndexError> {
+    pub fn insert_batch(&mut self, batch: impl IntoIterator<Item = [T; D]>) -> IndexResult<()> {
         for vector in batch {
             self.insert(&vector)?;
         }
@@ -363,11 +360,7 @@ where
     }
 
     /// Search for the k nearest neighbors from the query vector by traveling the index
-    pub fn search(
-        &self,
-        query: &[T; D],
-        k: usize,
-    ) -> Result<Vec<SearchResult<'_, T, D>>, IndexError> {
+    pub fn search(&self, query: &[T; D], k: usize) -> IndexResult<Vec<SearchResult<'_, T, D>>> {
         // check for edge cases
         if self.is_empty() {
             return Err(IndexError::EmptyIndex);

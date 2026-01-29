@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result};
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+
+pub type IndexResult<T> = Result<T, IndexError>;
 
 #[derive(Debug)]
 pub enum IndexError {
@@ -10,7 +13,7 @@ pub enum IndexError {
 }
 
 impl Display for IndexError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::EmptyIndex => write!(f, "Empty index"),
             Self::EmptyLevel(level) => write!(f, "Level {level} empty"),
@@ -25,3 +28,5 @@ impl Display for IndexError {
         }
     }
 }
+
+impl Error for IndexError {}

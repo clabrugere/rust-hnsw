@@ -1,4 +1,6 @@
-use rand::{seq::IteratorRandom, Rng};
+use core::f64;
+use rand::Rng;
+use rand::{rng, seq::IteratorRandom};
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
@@ -83,11 +85,10 @@ type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
 type Level = HashMap<usize, SortedEdgeList>;
 type Candidates = Vec<Candidate>;
 
-pub struct HNSW<T, const D: usize, F, R> {
+pub struct HNSW<T, const D: usize, F> {
     connections: usize, // M parameter
     ef_construction: usize,
     distance_metric: F,
-    rng: R,
     pub(crate) max_connections: usize,   // Mmax parameter
     pub(crate) max_connections_0: usize, // Mmax0
     pub(super) nodes: Nodes<T, D>,
@@ -95,13 +96,12 @@ pub struct HNSW<T, const D: usize, F, R> {
     pub(super) next_id: usize,
 }
 
-impl<T, const D: usize, F, R> HNSW<T, D, F, R>
+impl<T, const D: usize, F> HNSW<T, D, F>
 where
     T: Sized + Copy + Debug,
     F: Fn(&[T], &[T]) -> f64,
-    R: Rng,
 {
-    pub fn new(connections: usize, ef_construction: usize, distance_metric: F, rng: R) -> Self {
+    pub fn new(connections: usize, ef_construction: usize, distance_metric: F) -> Self {
         // heuristic to bound the connectivity of the levels
         let max_connections = (1.5 * (connections as f32)).round() as usize;
         let max_connections_0 = 2 * connections;
@@ -114,7 +114,6 @@ where
             connections,
             ef_construction,
             distance_metric,
-            rng,
             max_connections,
             max_connections_0,
             nodes,
@@ -147,9 +146,9 @@ where
     }
 
     /// Define the highest level by sampling from an exponentially decaying distribution
-    fn sample_max_level_index(&mut self) -> usize {
+    fn sample_max_level_index(&self) -> usize {
         let level_multiplier = 1.0 / (self.connections as f64).ln();
-        let log_p = self.rng.random_range::<f64, _>(f64::EPSILON..=1.0).ln();
+        let log_p = rng().random_range(f64::EPSILON..=1.0).ln();
 
         (-(log_p * level_multiplier).floor()).max(1.0) as usize - 1
     }
@@ -168,10 +167,10 @@ where
     }
 
     /// Randomly sample a node in the top layer. We are guaranteed to have at least one point when invoking this method
-    fn sample_entry_id(&mut self, level_index: usize) -> Result<usize, IndexError> {
+    fn sample_entry_id(&self, level_index: usize) -> Result<usize, IndexError> {
         self.levels[level_index]
             .keys()
-            .choose(&mut self.rng)
+            .choose(&mut rng())
             .cloned()
             .ok_or(IndexError::EmptyLevel(level_index))
     }
@@ -366,7 +365,7 @@ where
 
     /// Search for the k nearest neighbors from the query vector by traveling the index
     pub fn search(
-        &mut self,
+        &self,
         query: &[T; D],
         k: usize,
     ) -> Result<Vec<SearchResult<'_, T, D>>, IndexError> {

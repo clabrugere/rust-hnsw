@@ -116,10 +116,10 @@ collections' previous capacity._
 - [x] check if variable size collection initial sizes make sense
 - [x] benchmark of index creation and search
 - [x] prune while connecting neighbors to avoid duplicated workload
+- [ ] parallelize search
+- [ ] parallelize vector insertion
 - [ ] implement heuristic for `select_neighbors` method, as described in the paper
 - [ ] use SIMD instructions for distance metrics
-- [ ] parallelize vector insertion
-- [ ] parallelize search
 
 ## References
 

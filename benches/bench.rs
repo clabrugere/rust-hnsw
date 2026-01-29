@@ -72,8 +72,7 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
 
     for size in [1, 100] {
         group.bench_function(format!("{size}"), |b| {
-            let rng = SmallRng::seed_from_u64(SEED);
-            let mut index = HNSW::new(16, 100, euclidean, rng);
+            let mut index = HNSW::new(16, 100, euclidean);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
             let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
@@ -99,8 +98,7 @@ fn benchmark_low_d_insertion(c: &mut Criterion) {
 
 fn benchmark_low_d_search(c: &mut Criterion) {
     c.bench_function("low-d search", |b| {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(16, 100, euclidean, rng);
+        let mut index = HNSW::new(16, 100, euclidean);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
@@ -124,8 +122,7 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
 
     for size in [1, 100] {
         group.bench_function(format!("{size}"), |b| {
-            let rng = SmallRng::seed_from_u64(SEED);
-            let mut index = HNSW::new(16, 100, euclidean, rng);
+            let mut index = HNSW::new(16, 100, euclidean);
 
             let mut rng_data = SmallRng::seed_from_u64(SEED);
             let data_distribution = Uniform::new(-1.0, 1.0).unwrap();
@@ -151,8 +148,7 @@ fn benchmark_high_d_insertion(c: &mut Criterion) {
 
 fn benchmark_high_d_search(c: &mut Criterion) {
     c.bench_function("high-d search", |b| {
-        let rng = SmallRng::seed_from_u64(SEED);
-        let mut index = HNSW::new(16, 100, euclidean, rng);
+        let mut index = HNSW::new(16, 100, euclidean);
 
         let mut rng_data = SmallRng::seed_from_u64(SEED);
         let data_distribution = Uniform::new(-1.0, 1.0).unwrap();

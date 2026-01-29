@@ -5,13 +5,9 @@ pub mod hnsw;
 #[cfg(test)]
 mod tests {
     use super::{distances::euclidean, hnsw::HNSW};
-    use rand::{rngs::SmallRng, SeedableRng};
 
-    const SEED: u64 = 1234;
-
-    fn create_index() -> HNSW<f64, 3, for<'a, 'b> fn(&'a [f64], &'b [f64]) -> f64, SmallRng> {
-        let rng = SmallRng::seed_from_u64(SEED);
-        HNSW::new(8, 8, euclidean, rng)
+    fn create_index() -> HNSW<f64, 3, for<'a, 'b> fn(&'a [f64], &'b [f64]) -> f64> {
+        HNSW::new(8, 8, euclidean)
     }
 
     #[test]
@@ -88,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_search_empty() {
-        let mut index = create_index();
+        let index = create_index();
         let vector = [1., 2., 3.];
 
         assert!(index.search(&vector, 1).is_err());

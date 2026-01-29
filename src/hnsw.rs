@@ -233,10 +233,9 @@ where
             return Ok(Vec::new());
         }
 
-        let max_connections = self.get_max_connections(level_index);
-        let mut candidates = BinaryHeap::with_capacity(max_connections); // min heap
+        let mut candidates = BinaryHeap::with_capacity(ef); // min heap
         let mut nearest_neighbors = BinaryHeap::with_capacity(ef); // max heap
-        let mut visited = HashSet::new();
+        let mut visited = HashSet::with_capacity(ef * 2);
 
         for &entry_id in entry_ids {
             let distance = self.distance(query, self.get_vector(entry_id)?);

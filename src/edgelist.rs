@@ -19,19 +19,19 @@ impl SortedEdgeList {
 
     pub fn insert(&mut self, candidate: Candidate) {
         // remove existing candidate with same id if the new one is closer
-        if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).cloned() {
-            if existing > candidate {
-                self.set.remove(&existing);
-            }
+        if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).cloned()
+            && existing > candidate
+        {
+            self.set.remove(&existing);
         }
 
         self.set.insert(candidate);
 
         // remove the worst (largest distance) if capacity exceeded
-        if self.set.len() > self.capacity {
-            if let Some(&worst) = self.set.iter().next_back() {
-                self.set.remove(&worst);
-            }
+        if self.set.len() > self.capacity
+            && let Some(&worst) = self.set.iter().next_back()
+        {
+            self.set.remove(&worst);
         }
     }
 

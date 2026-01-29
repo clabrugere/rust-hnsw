@@ -19,6 +19,12 @@ pub struct SearchResult<'v, T, const D: usize> {
     pub distance: f64,
 }
 
+impl<'c, T, const D: usize> SearchResult<'c, T, D> {
+    pub fn new(vector: &'c [T; D], distance: f64) -> Self {
+        Self { vector, distance }
+    }
+}
+
 pub struct HNSW<T, const D: usize, F> {
     connections: usize, // M parameter
     ef_construction: usize,
@@ -310,14 +316,8 @@ where
         let nearest_neighbors = self
             .search_level(0, query, &entry_ids, k)?
             .into_iter()
-            .map(|c| {
-                let result = SearchResult {
-                    vector: self.get_vector(c.id)?,
-                    distance: c.distance,
-                };
-                Ok(result)
-            })
-            .collect::<Result<Vec<_>, IndexError>>()?;
+            .map(|c| Ok(SearchResult::new(self.get_vector(c.id)?, c.distance)))
+            .collect::<IndexResult<Vec<_>>>()?;
 
         Ok(nearest_neighbors)
     }

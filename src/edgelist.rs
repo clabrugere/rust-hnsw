@@ -28,10 +28,8 @@ impl SortedEdgeList {
         self.set.insert(candidate);
 
         // remove the worst (largest distance) if capacity exceeded
-        if self.set.len() > self.capacity
-            && let Some(&worst) = self.set.iter().next_back()
-        {
-            self.set.remove(&worst);
+        if self.set.len() > self.capacity {
+            self.set.pop_last();
         }
     }
 

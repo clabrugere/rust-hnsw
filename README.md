@@ -69,13 +69,10 @@ The index is generic over the vector data type and its dimension. For example, t
 one would create the index this way:
 
 ```rust
-use rand::rngs::SmallRng;
-use rand::SeedableRng;
 use rust_hnsw::distances::euclidean;
 use rust_hnsw::hnsw::HNSW;
 
-let rng = SmallRng::from_entropy();
-let index: HNSW<f32, 3, _> = HNSW::new(16, 100, euclidean, rng);
+let mut index = HNSW::new(16, 100, euclidean);
 ```
 
 and then add vectors one by one or from an iterator:

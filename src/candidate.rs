@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 /// Utility struct to be used with a binary heap in the neighbor search
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(super) struct Candidate {
+pub struct Candidate {
     pub id: usize,
     pub distance: f64,
 }
@@ -16,7 +16,7 @@ impl PartialOrd for Candidate {
 }
 
 impl Candidate {
-    pub fn new(id: usize, distance: f64) -> Self {
+    pub const fn new(id: usize, distance: f64) -> Self {
         Self { id, distance }
     }
 }

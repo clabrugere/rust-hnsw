@@ -1,5 +1,5 @@
 use core::f64;
-use rand::{rng, seq::IteratorRandom, Rng};
+use rand::{Rng, rng, seq::IteratorRandom};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Debug;
@@ -20,7 +20,7 @@ pub struct SearchResult<'v, T, const D: usize> {
 }
 
 impl<'c, T, const D: usize> SearchResult<'c, T, D> {
-    pub fn new(vector: &'c [T; D], distance: f64) -> Self {
+    pub const fn new(vector: &'c [T; D], distance: f64) -> Self {
         Self { vector, distance }
     }
 }
@@ -98,7 +98,7 @@ where
         self.levels.push(level);
     }
 
-    fn get_max_connections(&self, level_index: usize) -> usize {
+    const fn get_max_connections(&self, level_index: usize) -> usize {
         if level_index > 0 {
             self.max_connections
         } else {
@@ -111,7 +111,7 @@ where
         self.levels[level_index]
             .keys()
             .choose(&mut rng())
-            .cloned()
+            .copied()
             .ok_or(IndexError::EmptyLevel(level_index))
     }
 
@@ -209,8 +209,7 @@ where
                         }
                         furthest_distance = nearest_neighbors
                             .peek()
-                            .map(|c| c.distance)
-                            .unwrap_or(f64::INFINITY);
+                            .map_or(f64::INFINITY, |c| c.distance);
                     }
                 }
             }
@@ -229,7 +228,7 @@ where
     }
 
     /// Return the number of levels in the index
-    pub fn num_levels(&self) -> usize {
+    pub const fn num_levels(&self) -> usize {
         self.levels.len()
     }
 

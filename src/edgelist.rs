@@ -4,13 +4,13 @@ use super::candidate::Candidate;
 
 // Utility struct to maintain a fixed capacity ordered set of candidates, popping the worst candidate when exceeding capacity
 #[derive(Debug)]
-pub(super) struct SortedEdgeList {
+pub struct SortedEdgeList {
     pub(super) set: BTreeSet<Candidate>,
     capacity: usize,
 }
 
 impl SortedEdgeList {
-    pub fn new(capacity: usize) -> Self {
+    pub const fn new(capacity: usize) -> Self {
         Self {
             set: BTreeSet::new(),
             capacity,
@@ -19,7 +19,7 @@ impl SortedEdgeList {
 
     pub fn insert(&mut self, candidate: Candidate) {
         // remove existing candidate with same id if the new one is closer
-        if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).cloned()
+        if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).copied()
             && existing > candidate
         {
             self.set.remove(&existing);

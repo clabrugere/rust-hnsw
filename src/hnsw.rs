@@ -93,7 +93,7 @@ where
         (-(log_p * level_multiplier).floor()).max(1.0) as usize - 1
     }
 
-    fn insert_level_then_node(&mut self, id: usize, max_connections: usize) {
+    fn insert_top_level(&mut self, id: usize, max_connections: usize) {
         let level = Level::from([(id, SortedEdgeList::new(max_connections))]);
         self.levels.push(level);
     }
@@ -236,7 +236,7 @@ where
         let node_id = self.insert_vector(vector);
 
         if self.levels.is_empty() {
-            self.insert_level_then_node(node_id, self.max_connections_0);
+            self.insert_top_level(node_id, self.max_connections_0);
             return Ok(());
         }
 
@@ -245,7 +245,7 @@ where
 
         // handle the case of sampling a level higher than the current top level
         if max_level_index > top_level_index {
-            self.insert_level_then_node(node_id, self.max_connections);
+            self.insert_top_level(node_id, self.max_connections);
             max_level_index = top_level_index;
         }
 

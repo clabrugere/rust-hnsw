@@ -38,7 +38,7 @@ pub struct HNSW<T, const D: usize, F> {
 
 impl<T, const D: usize, F> HNSW<T, D, F>
 where
-    T: Copy + Debug,
+    T: Copy,
     F: Fn(&[T], &[T]) -> f64,
 {
     pub fn new(connections: usize, ef_construction: usize, distance_metric: F) -> Self {

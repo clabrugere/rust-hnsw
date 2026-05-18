@@ -9,7 +9,6 @@ pub enum IndexError {
     EmptyLevel(usize),
     NodeNotFound(usize),
     NodeNotFoundInLevel { level_index: usize, node_id: usize },
-    NoNeighborCandidates,
 }
 
 impl Display for IndexError {
@@ -24,7 +23,6 @@ impl Display for IndexError {
             } => {
                 write!(f, "Node {node_id} not found in level {level_index}")
             }
-            Self::NoNeighborCandidates => write!(f, "Candidate not found"),
         }
     }
 }

@@ -183,8 +183,7 @@ where
         while let Some(closest) = candidates.pop().map(|c| c.0) {
             let mut furthest_distance = nearest_neighbors
                 .peek()
-                .map(|c| c.distance)
-                .ok_or(IndexError::NoNeighborCandidates)?;
+                .map_or(f64::INFINITY, |c| c.distance);
 
             // all closest neighbors have been explored
             if closest.distance > furthest_distance {

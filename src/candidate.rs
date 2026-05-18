@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 /// Utility struct to be used with a binary heap in the neighbor search
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub struct Candidate {
     pub id: usize,
     pub distance: f64,
@@ -12,6 +12,12 @@ impl Eq for Candidate {}
 impl PartialOrd for Candidate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Candidate {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
     }
 }
 

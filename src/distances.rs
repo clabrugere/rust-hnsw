@@ -6,7 +6,7 @@ use std::{
 /// Compute the squared L2 distance between two vectors
 pub fn squared_euclidean<T>(x: &[T], y: &[T]) -> T
 where
-    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum,
+    T: Copy + Sub<Output = T> + Mul<Output = T> + Sum,
 {
     x.iter()
         .zip(y)
@@ -17,7 +17,7 @@ where
 /// Compute the L2 distance between two vectors
 pub fn euclidean<T>(x: &[T], y: &[T]) -> f64
 where
-    T: Sized + Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>,
+    T: Copy + Sub<Output = T> + Mul<Output = T> + Sum + Into<f64>,
 {
     squared_euclidean(x, y).into().sqrt()
 }
@@ -25,7 +25,7 @@ where
 /// Compute the cosine distance between two vectors and return a f64
 pub fn cosine<T>(x: &[T], y: &[T]) -> f64
 where
-    T: Sized + Copy + Into<f64>,
+    T: Copy + Into<f64>,
 {
     let (mut x_norm, mut y_norm, mut dot) = (0.0, 0.0, 0.0);
 
@@ -40,10 +40,11 @@ where
     1.0 - dot / (x_norm.sqrt() * y_norm.sqrt())
 }
 
-/// Compute the Manhattan (L1) distance between two vectors
+/// Compute the Manhattan (L1) distance between two vectors.
+/// Only well-defined for signed or floating-point types; unsigned integers will panic on underflow in debug or wrap silently in release.
 pub fn manhattan<T>(x: &[T], y: &[T]) -> f64
 where
-    T: Sized + Copy + Sub<Output = T> + Into<f64>,
+    T: Copy + Sub<Output = T> + Into<f64>,
 {
     x.iter()
         .zip(y)

@@ -275,6 +275,7 @@ where
 
             let neighbors = self.select_neighbors(&candidates, self.connections);
             self.connect_neighbors(level_index, node_id, neighbors)?;
+            entry_ids = neighbors.iter().map(|c| c.id).collect();
         }
         Ok(())
     }

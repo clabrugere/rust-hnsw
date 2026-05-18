@@ -22,7 +22,7 @@ impl Display for IndexError {
                 level_index,
                 node_id,
             } => {
-                write!(f, "Node {node_id} not found in level {level_index} empty")
+                write!(f, "Node {node_id} not found in level {level_index}")
             }
             Self::NoNeighborCandidates => write!(f, "Candidate not found"),
         }

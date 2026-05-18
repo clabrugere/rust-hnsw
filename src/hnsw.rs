@@ -38,7 +38,7 @@ pub struct HNSW<T, const D: usize, F> {
 
 impl<T, const D: usize, F> HNSW<T, D, F>
 where
-    T: Sized + Copy + Debug,
+    T: Copy + Debug,
     F: Fn(&[T], &[T]) -> f64,
 {
     pub fn new(connections: usize, ef_construction: usize, distance_metric: F) -> Self {
@@ -274,7 +274,7 @@ where
 
             let neighbors = self.select_neighbors(&candidates, self.connections);
             self.connect_neighbors(level_index, node_id, neighbors)?;
-            entry_ids = neighbors.iter().map(|c| c.id).collect();
+            entry_ids = candidates.iter().map(|c| c.id).collect();
         }
         Ok(())
     }

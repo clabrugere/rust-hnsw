@@ -5,7 +5,7 @@ use super::candidate::Candidate;
 /// Utility struct to maintain a fixed capacity ordered set of candidates, popping the worst candidate when exceeding capacity
 #[derive(Debug)]
 pub struct SortedEdgeList {
-    pub(super) set: BTreeSet<Candidate>,
+    set: BTreeSet<Candidate>,
     capacity: usize,
 }
 
@@ -37,6 +37,11 @@ impl SortedEdgeList {
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         self.set.iter().map(|c| c.id)
     }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.set.len()
+    }
 }
 
 #[cfg(test)]
@@ -50,7 +55,7 @@ mod tests {
         list.insert(Candidate::new(2, 0.3));
         list.insert(Candidate::new(3, 0.7));
 
-        assert_eq!(list.set.len(), 3);
+        assert_eq!(list.len(), 3);
         let ids: Vec<usize> = list.iter().collect();
         assert_eq!(ids, vec![2, 1, 3]); // sorted by distance
     }
@@ -62,7 +67,7 @@ mod tests {
         list.insert(Candidate::new(2, 0.3));
         list.insert(Candidate::new(3, 0.7));
 
-        assert_eq!(list.set.len(), 2);
+        assert_eq!(list.len(), 2);
         let ids: Vec<usize> = list.iter().collect();
         assert_eq!(ids, vec![2, 1]); // worst candidate (3) removed
     }
@@ -73,7 +78,7 @@ mod tests {
         list.insert(Candidate::new(1, 0.5));
         list.insert(Candidate::new(1, 0.3)); // closer distance for same id
 
-        assert_eq!(list.set.len(), 1);
+        assert_eq!(list.len(), 1);
         let candidate = list.set.iter().next().unwrap();
         assert_eq!(candidate.distance, 0.3);
     }
@@ -81,7 +86,7 @@ mod tests {
     #[test]
     fn test_sorted_edge_list_empty() {
         let list = SortedEdgeList::new(5);
-        assert_eq!(list.set.len(), 0);
+        assert_eq!(list.len(), 0);
         assert_eq!(list.iter().count(), 0);
     }
 
@@ -90,6 +95,6 @@ mod tests {
         let mut list = SortedEdgeList::new(0);
         list.insert(Candidate::new(1, 0.5));
 
-        assert_eq!(list.set.len(), 0);
+        assert_eq!(list.len(), 0);
     }
 }

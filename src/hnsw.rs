@@ -29,11 +29,11 @@ pub struct HNSW<T, const D: usize, F> {
     connections: usize, // M parameter
     ef_construction: usize,
     distance_metric: F,
-    pub(crate) max_connections: usize,   // Mmax parameter
-    pub(crate) max_connections_0: usize, // Mmax0
-    pub(super) nodes: Nodes<T, D>,
-    pub(super) levels: Vec<Level>,
-    pub(super) next_id: usize,
+    max_connections: usize,   // Mmax parameter
+    max_connections_0: usize, // Mmax0
+    nodes: Nodes<T, D>,
+    levels: Vec<Level>,
+    next_id: usize,
 }
 
 impl<T, const D: usize, F> HNSW<T, D, F>
@@ -403,7 +403,7 @@ mod tests {
                 } else {
                     index.max_connections_0
                 };
-                edges.set.len() <= max_connections
+                edges.len() <= max_connections
             })
         });
 

@@ -40,6 +40,7 @@ where
     1.0 - dot / (x_norm.sqrt() * y_norm.sqrt())
 }
 
+/// Compute the Manhattan (L1) distance between two vectors
 pub fn manhattan<T>(x: &[T], y: &[T]) -> f64
 where
     T: Sized + Copy + Sub<Output = T> + Into<f64>,

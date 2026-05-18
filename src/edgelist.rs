@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use super::candidate::Candidate;
 
-// Utility struct to maintain a fixed capacity ordered set of candidates, popping the worst candidate when exceeding capacity
+/// Utility struct to maintain a fixed capacity ordered set of candidates, popping the worst candidate when exceeding capacity
 #[derive(Debug)]
 pub struct SortedEdgeList {
     pub(super) set: BTreeSet<Candidate>,

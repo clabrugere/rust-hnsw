@@ -10,7 +10,6 @@ use super::errors::{IndexError, IndexResult};
 
 type Nodes<T, const D: usize> = HashMap<usize, [T; D]>;
 type Level = HashMap<usize, SortedEdgeList>;
-type Candidates = Vec<Candidate>;
 
 /// Utility struct to store a nearest neighbor search result
 #[derive(Debug)]
@@ -163,7 +162,7 @@ where
         query: &[T; D],
         entry_ids: &[usize],
         ef: usize,
-    ) -> IndexResult<Candidates> {
+    ) -> IndexResult<Vec<Candidate>> {
         if ef == 0 {
             return Ok(Vec::new());
         }

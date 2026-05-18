@@ -6,7 +6,7 @@ Implements Hierarchical Navigable Small World in rust, a state-of-the-art index 
 search in vector databases.
 
 The implementation is straightforward in the sense that it aims at following the original paper as much as possible, and 
-while some care have been taken to make it performant, is not explicitly optimized for time or memory.
+while some care has been taken to make it performant, it is not explicitly optimized for time or memory.
 
 ### Hierarchical Navigable Small World
 
@@ -17,11 +17,11 @@ level contains a node for every vector indexed so far.
 
 ![alt text](assets/hnsw.png)
 
-Once vectors are index, looking the nearest neighbors from a given query vector $q$ is an iterative process, where
+Once vectors are indexed, looking for the nearest neighbors from a given query vector $q$ is an iterative process, where
 the hierarchy is traveled from the top level to the base. From the top level, a random entry point is sampled and a 
 greedy search on the graph is performed starting from it. The resulting nearest vector is used as entry point for the 
-next level and the process continue until the base level is reached. Once in the base level, a regular greedy search 
-return the k nearest neighbors.
+next level and the process continues until the base level is reached. Once in the base level, a regular greedy search 
+returns the k nearest neighbors.
 
 The hierarchical structure of the index allows to traverse very large graphs rather quickly by 'hoping' large distances 
 in the top levels to reach a more local neighborhood to look for the k nearest vectors of the query.

@@ -125,11 +125,7 @@ where
 
     // TODO: implement heuristic as described in the paper
     fn select_neighbors<'c>(&self, candidates: &'c [Candidate], k: usize) -> &'c [Candidate] {
-        if candidates.len() <= k {
-            candidates
-        } else {
-            &candidates[..k]
-        }
+        &candidates[..k.min(candidates.len())]
     }
 
     /// Returns all the indices of neighboring nodes of a given node id and level index, if they exist

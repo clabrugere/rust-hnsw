@@ -20,7 +20,7 @@ impl SortedEdgeList {
     pub fn insert(&mut self, candidate: Candidate) {
         // remove existing candidate with same id if the new one is closer
         if let Some(existing) = self.set.iter().find(|c| c.id == candidate.id).copied() {
-            if existing <= candidate {
+            if existing.distance <= candidate.distance {
                 return; // existing candidate is better or equal, do not insert
             }
             self.set.remove(&existing);

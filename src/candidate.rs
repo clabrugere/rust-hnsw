@@ -17,7 +17,7 @@ impl PartialOrd for Candidate {
 
 impl PartialEq for Candidate {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp(other) == Ordering::Equal
+        self.id == other.id && self.distance == other.distance
     }
 }
 
@@ -30,14 +30,9 @@ impl Candidate {
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> Ordering {
         // tie breaker on id to ensure deterministic ordering
-        match self
-            .distance
-            .partial_cmp(&other.distance)
-            .unwrap_or(Ordering::Equal)
-        {
-            Ordering::Equal => self.id.cmp(&other.id),
-            ord => ord,
-        }
+        self.distance
+            .total_cmp(&other.distance)
+            .then(self.id.cmp(&other.id))
     }
 }
 

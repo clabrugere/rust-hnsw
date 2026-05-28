@@ -41,23 +41,16 @@ where
     F: Fn(&[T], &[T]) -> f64,
 {
     pub fn new(connections: usize, ef_construction: usize, distance_metric: F) -> Self {
-        // heuristic to bound the connectivity of the levels
-        let max_connections = (1.5 * (connections as f32)).round() as usize;
-        let max_connections_0 = 2 * connections;
-
-        let nodes = Nodes::new();
-        let levels = Vec::new();
-        let next_id = 0;
-
         Self {
             connections,
             ef_construction,
             distance_metric,
-            max_connections,
-            max_connections_0,
-            nodes,
-            levels,
-            next_id,
+            // heuristic to bound the connectivity of the levels
+            max_connections: (1.5 * connections as f32).round() as usize,
+            max_connections_0: 2 * connections,
+            nodes: Nodes::new(),
+            levels: Vec::new(),
+            next_id: 0,
         }
     }
 
@@ -142,11 +135,9 @@ where
         neighbors: &[Candidate],
     ) -> IndexResult<()> {
         for candidate in neighbors {
-            self.get_edgelist_mut(level_index, node_id)
-                .map(|edge_list| edge_list.insert(*candidate))?;
-
-            self.get_edgelist_mut(level_index, candidate.id)
-                .map(|edge_list| edge_list.insert(Candidate::new(node_id, candidate.distance)))?;
+            self.get_edgelist_mut(level_index, node_id)?.insert(*candidate);
+            self.get_edgelist_mut(level_index, candidate.id)?
+                .insert(Candidate::new(node_id, candidate.distance));
         }
         Ok(())
     }
@@ -245,8 +236,7 @@ where
         }
 
         // sample entry point
-        let entry_id = self.sample_entry_id(top_level_index)?;
-        let mut entry_ids = Vec::from([entry_id]);
+        let mut entry_ids = vec![self.sample_entry_id(top_level_index)?];
 
         // travel hierarchy for levels above the highest level of this node
         for level_index in (max_level_index + 1..=top_level_index).rev() {
@@ -276,10 +266,7 @@ where
 
     /// Insert each element of an iterator in the index
     pub fn insert_batch(&mut self, batch: impl IntoIterator<Item = [T; D]>) -> IndexResult<()> {
-        for vector in batch {
-            self.insert(&vector)?;
-        }
-        Ok(())
+        batch.into_iter().try_for_each(|v| self.insert(&v))
     }
 
     /// Search for the k nearest neighbors from the query vector by traveling the index
@@ -293,8 +280,7 @@ where
 
         // sample a random node in the top layer to start the search from
         let top_level_index = self.num_levels() - 1;
-        let entry_id = self.sample_entry_id(top_level_index)?;
-        let mut entry_ids = Vec::from([entry_id]);
+        let mut entry_ids = vec![self.sample_entry_id(top_level_index)?];
 
         // travel the hierarchy from top to bottom by finding the closest entry point for the next level
         // by construction, we are guaranteed that the node found is also present in all the lower levels

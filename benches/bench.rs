@@ -110,7 +110,7 @@ fn benchmark_low_d_search(c: &mut Criterion) {
         b.iter_batched(
             || sample_vector(data_distribution, &mut rng_data),
             |query| {
-                let _ = index.search(black_box(&query), black_box(3));
+                let _ = index.search(black_box(&query), black_box(3), black_box(3));
             },
             BatchSize::SmallInput,
         );
@@ -160,7 +160,7 @@ fn benchmark_high_d_search(c: &mut Criterion) {
         b.iter_batched(
             || sample_vector(data_distribution, &mut rng_data),
             |query| {
-                let _ = index.search(black_box(&query), black_box(3));
+                let _ = index.search(black_box(&query), black_box(3), black_box(3));
             },
             BatchSize::SmallInput,
         );

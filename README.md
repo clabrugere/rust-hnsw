@@ -39,6 +39,10 @@ As per the paper, authors recommend setting $M_{max0} = 2M$ and $M_{max}$ to som
 
 The tradeoff between index build time and search quality is controlled by the parameter $ef_{construction}$ used during index construction: the higher it is, the lower the recall error. Authors suggest setting it to $\sim 100$.
 
+A separate parameter $ef_{search}$ controls search quality at query time: it sets the beam width of the base-level search, with higher values improving recall at the cost of speed. It must satisfy $ef_{search} \geq k$.
+
+Neighbor selection during construction uses the diversity heuristic from the paper rather than simply taking the $M$ nearest candidates, which prevents all connection slots from being filled by vectors from the same dense cluster and ensures the graph remains navigable across different regions of the space.
+
 ## Getting Started
 
 ### Prerequisites
@@ -93,7 +97,7 @@ in a small struct `SearchResult`, or an error. To search for nearest neighbors:
 
 ```rust
 // return a Result<Vec<SearchResult<'_, T, D>>, IndexError> 
-results =  index.search(&vector, 1)?;
+results = index.search(&vector, 1, 10)?;
 ```
 
 Finally, to remove every vectors and reset the index:
@@ -115,7 +119,7 @@ collections' previous capacity._
 - [x] prune while connecting neighbors to avoid duplicated workload
 - [ ] parallelize search
 - [ ] parallelize vector insertion
-- [ ] implement heuristic for `select_neighbors` method, as described in the paper
+- [x] implement heuristic for `select_neighbors` method, as described in the paper
 - [ ] use SIMD instructions for distance metrics
 
 ## References

@@ -117,9 +117,34 @@ where
         id
     }
 
-    // TODO: implement heuristic as described in the paper
-    fn select_neighbors<'c>(&self, candidates: &'c [Candidate], k: usize) -> &'c [Candidate] {
-        &candidates[..k.min(candidates.len())]
+    fn select_neighbors(&self, candidates: &[Candidate], k: usize) -> IndexResult<Vec<Candidate>> {
+        let mut result: Vec<Candidate> = Vec::with_capacity(k);
+        let mut accepted_vectors: Vec<&[T; D]> = Vec::with_capacity(k);
+        for &candidate in candidates {
+            if result.len() >= k {
+                break;
+            }
+            let candidate_vec = self.get_vector(candidate.id)?;
+            if !self.is_dominated(candidate_vec, candidate.distance, &accepted_vectors) {
+                result.push(candidate);
+                accepted_vectors.push(candidate_vec);
+            }
+        }
+        Ok(result)
+    }
+
+    // Returns true if the candidate is at least as close to some already-selected neighbor as it
+    // is to the query — meaning it lies in a direction already covered, so adding it would cluster
+    // neighbors rather than spread them out
+    fn is_dominated(
+        &self,
+        candidate_vec: &[T; D],
+        candidate_dist: f64,
+        accepted_vectors: &[&[T; D]],
+    ) -> bool {
+        accepted_vectors
+            .iter()
+            .any(|&accepted_vec| candidate_dist >= self.distance(candidate_vec, accepted_vec))
     }
 
     /// Returns all the indices of neighboring nodes of a given node id and level index, if they exist
@@ -261,8 +286,8 @@ where
             let candidates =
                 self.search_level(level_index, vector, &entry_ids, self.ef_construction)?;
 
-            let neighbors = self.select_neighbors(&candidates, self.connections);
-            self.connect_neighbors(level_index, node_id, neighbors)?;
+            let neighbors = self.select_neighbors(&candidates, self.connections)?;
+            self.connect_neighbors(level_index, node_id, &neighbors)?;
             entry_ids = candidates.iter().map(|c| c.id).collect();
         }
         Ok(())
@@ -273,8 +298,13 @@ where
         batch.into_iter().try_for_each(|v| self.insert(&v))
     }
 
-    /// Search for the k nearest neighbors from the query vector by traveling the index
-    pub fn search(&self, query: &[T; D], k: usize) -> IndexResult<Vec<SearchResult<'_, T, D>>> {
+    /// Search for the `k` nearest neighbors of `query`; `ef >= k` controls beam width at the base level
+    pub fn search(
+        &self,
+        query: &[T; D],
+        k: usize,
+        ef: usize,
+    ) -> IndexResult<Vec<SearchResult<'_, T, D>>> {
         // check for edge cases
         if self.is_empty() {
             return Err(IndexError::EmptyIndex);
@@ -298,8 +328,9 @@ where
 
         // perform full search on the lowest level
         let nearest_neighbors = self
-            .search_level(0, query, &entry_ids, k)?
+            .search_level(0, query, &entry_ids, ef.max(k))?
             .into_iter()
+            .take(k)
             .map(|c| Ok(SearchResult::new(self.get_vector(c.id)?, c.distance)))
             .collect::<IndexResult<Vec<_>>>()?;
 
@@ -396,7 +427,7 @@ mod tests {
         let index = create_index();
         let vector = [1., 2., 3.];
 
-        assert!(index.search(&vector, 1).is_err());
+        assert!(index.search(&vector, 1, 1).is_err());
     }
 
     #[test]
@@ -405,7 +436,7 @@ mod tests {
         let vector = [1., 2., 3.];
 
         index.insert(&vector).unwrap();
-        let result = index.search(&vector, 1).unwrap();
+        let result = index.search(&vector, 1, 1).unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].vector, &vector);
@@ -426,7 +457,7 @@ mod tests {
         index.insert(&vector4).unwrap();
 
         let query = [0., 0., 0.];
-        let result = index.search(&query, 4).unwrap();
+        let result = index.search(&query, 4, 4).unwrap();
 
         assert_eq!(result.len(), 4);
         // Results should be ordered by distance (closest first)
@@ -451,7 +482,7 @@ mod tests {
         index.insert(&vector2).unwrap();
 
         let query = [0., 0., 0.];
-        let result = index.search(&query, 10).unwrap(); // k > index size
+        let result = index.search(&query, 10, 10).unwrap(); // k > index size
 
         assert_eq!(result.len(), 2); // Should return all available vectors
         assert!(result.iter().any(|r| r.vector == &vector1));
@@ -465,7 +496,7 @@ mod tests {
         index.insert(&vector).unwrap();
 
         let query = [0., 0., 0.];
-        let result = index.search(&query, 0).unwrap();
+        let result = index.search(&query, 0, 0).unwrap();
 
         assert_eq!(result.len(), 0);
     }
@@ -482,12 +513,46 @@ mod tests {
         index.insert(&vector3).unwrap();
 
         let query = [1., 2., 3.];
-        let result = index.search(&query, 3).unwrap();
+        let result = index.search(&query, 3, 3).unwrap();
 
         assert_eq!(result.len(), 3);
         // First two results should have distance 0 (exact matches)
         assert!(result[0].distance.abs() < f64::EPSILON);
         assert!(result[1].distance.abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_search_ef_clamped_to_k() {
+        let mut index = create_index();
+        index.insert_batch((0..5).map(|i| [i as f64; 3])).unwrap();
+
+        let query = [0.; 3];
+        let result = index.search(&query, 3, 1).unwrap();
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_search_ef_larger_than_k_returns_k() {
+        let mut index = create_index();
+        index.insert_batch((0..20).map(|i| [i as f64; 3])).unwrap();
+
+        let query = [0.; 3];
+        let result = index.search(&query, 3, 20).unwrap();
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_select_neighbors_heuristic_diversity() {
+        let mut index = HNSW::new(2, 8, euclidean);
+
+        for i in 0..5 {
+            index.insert(&[0.01 * i as f64, 0., 0.]).unwrap();
+        }
+        let outlier = [10., 0., 0.];
+        index.insert(&outlier).unwrap();
+
+        let result = index.search(&[10., 0., 0.], 1, 4).unwrap();
+        assert_eq!(result[0].vector, &outlier);
     }
 
     #[test]

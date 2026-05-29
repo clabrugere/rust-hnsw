@@ -85,7 +85,8 @@ where
         (-(log_p * level_multiplier).floor()).max(1.0) as usize - 1
     }
 
-    fn insert_top_level(&mut self, id: usize, max_connections: usize) {
+    fn insert_top_level(&mut self, id: usize) {
+        let max_connections = self.get_max_connections(self.levels.len());
         let level = Level::from([(id, SortedEdgeList::new(max_connections))]);
         self.levels.push(level);
     }
@@ -98,7 +99,7 @@ where
         }
     }
 
-    /// Randomly sample a node in the top layer. We are guaranteed to have at least one point when invoking this method
+    /// Randomly sample a node in a given level. We are guaranteed to have at least one point when invoking this method
     fn sample_entry_id(&self, level_index: usize) -> IndexResult<usize> {
         self.levels[level_index]
             .keys()
@@ -135,7 +136,8 @@ where
         neighbors: &[Candidate],
     ) -> IndexResult<()> {
         for candidate in neighbors {
-            self.get_edgelist_mut(level_index, node_id)?.insert(*candidate);
+            self.get_edgelist_mut(level_index, node_id)?
+                .insert(*candidate);
             self.get_edgelist_mut(level_index, candidate.id)?
                 .insert(Candidate::new(node_id, candidate.distance));
         }
@@ -191,10 +193,10 @@ where
 
                         if nearest_neighbors.len() > ef {
                             nearest_neighbors.pop();
+                            furthest_distance = nearest_neighbors
+                                .peek()
+                                .map_or(f64::INFINITY, |c| c.distance);
                         }
-                        furthest_distance = nearest_neighbors
-                            .peek()
-                            .map_or(f64::INFINITY, |c| c.distance);
                     }
                 }
             }
@@ -222,18 +224,20 @@ where
         let node_id = self.insert_vector(vector);
 
         if self.levels.is_empty() {
-            self.insert_top_level(node_id, self.max_connections_0);
+            self.insert_top_level(node_id);
             return Ok(());
         }
 
         let top_level_index = self.num_levels() - 1;
-        let mut max_level_index = self.sample_max_level_index();
+        let sampled_level = self.sample_max_level_index();
 
         // handle the case of sampling a level higher than the current top level
-        if max_level_index > top_level_index {
-            self.insert_top_level(node_id, self.max_connections);
-            max_level_index = top_level_index;
-        }
+        let max_level_index = if sampled_level > top_level_index {
+            self.insert_top_level(node_id);
+            top_level_index
+        } else {
+            sampled_level
+        };
 
         // sample entry point
         let mut entry_ids = vec![self.sample_entry_id(top_level_index)?];
@@ -377,15 +381,11 @@ mod tests {
         let mut index = create_index();
         index.insert_batch((0..10).map(|i| [i as f64; 3])).unwrap();
 
-        let structure_ok = index.levels.iter().enumerate().all(|(level_index, level)| {
-            level.values().all(move |edges| {
-                let max_connections = if level_index > 0 {
-                    index.max_connections
-                } else {
-                    index.max_connections_0
-                };
-                edges.len() <= max_connections
-            })
+        let structure_ok = (0..index.num_levels()).all(|level_index| {
+            let max = index.get_max_connections(level_index);
+            index.levels[level_index]
+                .values()
+                .all(|edges| edges.len() <= max)
         });
 
         assert!(structure_ok);
